@@ -201,7 +201,7 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
             onChange={e => setNewPage(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
             disabled={saving || loading}
-            className="w-14 text-sm text-center shrink-0"
+            className="w-20 text-sm text-center shrink-0"
             min={1}
           />
           <Button size="icon" onClick={handleAdd} disabled={!newText.trim() || saving || loading} className="flex-shrink-0">

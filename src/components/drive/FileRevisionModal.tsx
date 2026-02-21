@@ -306,7 +306,7 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
                 onChange={(e) => setNewItemPage(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
                 disabled={saving || loading}
-                className="w-16 text-sm text-center shrink-0"
+                className="w-20 text-sm text-center shrink-0"
                 min={1}
               />
               <Button
