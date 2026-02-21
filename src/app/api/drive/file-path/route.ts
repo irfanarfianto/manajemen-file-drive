@@ -45,31 +45,36 @@ export async function GET(request: NextRequest) {
   const drive = getDriveClient(session.accessToken);
 
   try {
-    // 1. Ambil info file saat ini (termasuk parentnya)
+    // 1. Ambil info file/folder saat ini
     const fileRes = await drive.files.get({
       fileId,
       fields: "id,name,mimeType,parents",
     });
     const file = fileRes.data;
-    const parentId = file.parents?.[0] ?? "root";
+    const isFolder = file.mimeType === "application/vnd.google-apps.folder";
 
-    // 2. Build path dari root → parent folder
-    const folderPath = await buildFolderPath(drive, parentId);
+    // 2. Tentukan target ID untuk list isi:
+    // Jika folder -> list isi di DALAMNYA. Jika file -> list saudaranya.
+    const listParentId = isFolder ? file.id! : (file.parents?.[0] ?? "root");
 
-    // 3. List file-file di folder yang sama (siblings)
-    const siblingsRes = await drive.files.list({
-      q: `'${parentId}' in parents and trashed = false`,
+    // 3. Build path
+    // Jika folder -> path harus sampai folder itu sendiri. Jika file -> sampai parentnya saja.
+    const folderPath = await buildFolderPath(drive, listParentId);
+
+    // 4. List isi (children atau siblings tergantung konteks)
+    const contentsRes = await drive.files.list({
+      q: `'${listParentId}' in parents and trashed = false`,
       fields: "files(id,name,mimeType,size,webViewLink,modifiedTime)",
       orderBy: "folder,name",
       pageSize: 50,
     });
-    const siblings = siblingsRes.data.files ?? [];
+    const siblings = contentsRes.data.files ?? [];
 
     return NextResponse.json({
       currentFile: { id: file.id, name: file.name, mimeType: file.mimeType },
-      parentId,
-      folderPath,   // [{ id, name }, ...] dari root sampai parent langsung
-      siblings,     // file & folder di folder yang sama
+      parentId: listParentId,
+      folderPath,
+      siblings,
     });
   } catch (err: unknown) {
     console.error("[api/drive/file-path] Error:", err);

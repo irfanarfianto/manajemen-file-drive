@@ -20,6 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { FileIcon } from "@/components/ui/FileIcon";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -221,17 +222,44 @@ export function Sidebar({
                       {siblings.length === 0 ? (
                         <p className="px-2 py-1 text-[10px] text-muted-foreground/30 italic">Folder kosong</p>
                       ) : (
-                        siblings.filter(f => f.mimeType === "application/vnd.google-apps.folder").map(folder => (
-                          <button
-                            key={folder.id}
-                            onClick={() => onFolderChange(folder.id)}
-                            className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-[11px] text-foreground/60 hover:bg-muted/60 hover:text-foreground transition-all"
-                            style={{ paddingLeft: `${(folderPath.length + 1) * 8}px` }}
-                          >
-                            <FolderOpen className="h-3 w-3 shrink-0 text-muted-foreground/60" />
-                            <span className="truncate">{folder.name}</span>
-                          </button>
-                        ))
+                        siblings.map(file => {
+                          const isFolder = file.mimeType === "application/vnd.google-apps.folder";
+                          const isCurrent = file.id === currentFolder;
+
+                          return (
+                            <button
+                              key={file.id}
+                              onClick={() => {
+                                if (isFolder) {
+                                  onFolderChange(file.id);
+                                } else {
+                                  // Navigasi ke preview
+                                  const params = new URLSearchParams({
+                                    fileId: file.id,
+                                    fileName: file.name,
+                                    mimeType: file.mimeType,
+                                  });
+                                  window.location.href = `/dashboard/preview?${params.toString()}`;
+                                }
+                              }}
+                              className={cn(
+                                "flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all",
+                                isCurrent 
+                                  ? "bg-primary/10 text-primary font-semibold"
+                                  : "text-foreground/60 hover:bg-muted/60 hover:text-foreground"
+                              )}
+                              style={{ paddingLeft: `${(folderPath.length + 1) * 8}px` }}
+                            >
+                              {isFolder 
+                                ? <FolderOpen className={cn("h-3 w-3 shrink-0", isCurrent ? "text-primary" : "text-muted-foreground/60")} />
+                                : <div className="h-3 w-3 shrink-0 flex items-center justify-center opacity-70">
+                                    <FileIcon mimeType={file.mimeType} className="h-2.5 w-2.5" />
+                                  </div>
+                              }
+                              <span className="truncate flex-1">{file.name}</span>
+                            </button>
+                          );
+                        })
                       )}
                     </div>
                   </>
