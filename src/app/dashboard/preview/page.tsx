@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
-  ArrowLeft, Download, ExternalLink, Loader2,
+  Download, ExternalLink, Loader2,
   CheckCircle2, Circle, ClipboardList, Plus, Trash2, Save,
   FileText, Tag, X as CloseIcon,
 } from "lucide-react";
@@ -243,7 +243,6 @@ function TagEditor({ fileId, initialTags }: { fileId: string; initialTags: strin
 // ─── Main page ─────────────────────────────────────────────────────────────
 function PreviewPageInner() {
   const params = useSearchParams();
-  const router = useRouter();
 
   const fileId = params.get("fileId") ?? "";
   const fileName = params.get("fileName") ?? "File";
@@ -286,13 +285,9 @@ function PreviewPageInner() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-background overflow-hidden">
+    <div className="flex h-full flex-col bg-background overflow-hidden">
       {/* Top bar */}
       <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 flex-shrink-0 z-10">
-        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => router.back()}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-
         <div className="flex-1 flex items-center gap-3 min-w-0">
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate leading-none">{fileName}</p>
@@ -363,7 +358,7 @@ function PreviewPageInner() {
 export default function PreviewPage() {
   return (
     <Suspense fallback={
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
       </div>
     }>
