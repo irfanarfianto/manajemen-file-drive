@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { 
   FolderPlus, 
@@ -87,29 +87,32 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
     if (newExpanded) await fetchData();
   };
 
-  // Efek untuk auto-expand JALUR AKTIF dan auto-collapse JALUR LAIN
+  // Efek untuk auto-expand jika ID folder ini ada di jalur yang harus dibuka
   useEffect(() => {
-    if (!isFolder) return;
-
-    const isInPath = autoExpandPath.includes(folder.id);
-    const isCurrentTarget = folder.id === currentFolder;
-
-    if (isInPath || isCurrentTarget) {
+    if (isFolder && autoExpandPath.includes(folder.id)) {
       setIsExpanded(true);
       fetchData();
-    } else if (autoExpandPath.length > 0) {
-      // Jika ada navigasi aktif (path tidak kosong) dan folder ini bukan bagian dari path, tutup saja.
+    } else if (isFolder && autoExpandPath.length > 0 && !autoExpandPath.includes(folder.id) && !isActive) {
+      // Tutup folder jika tidak ada di jalur aktif dan bukan folder aktif
       setIsExpanded(false);
     }
-  }, [autoExpandPath, folder.id, isFolder, currentFolder]);
+  }, [autoExpandPath, folder.id, isFolder, isActive]);
+
+  // Ref untuk scroll ke item aktif
+  const itemRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isActive && itemRef.current) {
+      itemRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [isActive]);
 
   return (
-    <div className="space-y-0.5">
+    <div className="space-y-0.5" ref={isActive ? itemRef : null}>
       <div 
         className={cn(
           "group flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all relative overflow-hidden cursor-pointer",
           isActive 
-            ? "bg-primary/10 text-primary font-semibold" 
+            ? "bg-primary/10 text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(var(--primary),0.1)]" 
             : "text-foreground/60 hover:bg-muted/80 hover:text-foreground"
         )}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
@@ -153,7 +156,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
         )}
         
         <span className="truncate flex-1">{folder.name}</span>
-        {isActive && <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-primary rounded-r-full" />}
+        {isActive && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-full shadow-[0_0_10px_rgba(var(--primary),0.5)]" />}
       </div>
 
       {/* Animated Height Container */}
@@ -170,16 +173,25 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
               <span className="text-[10px] text-muted-foreground/40 font-medium">Memuat...</span>
             </div>
           ) : (
-            children.map((child) => (
-              <SidebarTreeItem 
-                key={child.id} 
-                folder={child} 
-                level={level + 1} 
-                currentFolder={currentFolder} 
-                onFolderChange={onFolderChange}
-                autoExpandPath={autoExpandPath}
-              />
-            ))
+            // Urutkan: Folder dulu, baru File (agar folder tetap terkumpul di atas jalurnya)
+            [...children]
+              .sort((a, b) => {
+                const aIsFolder = a.mimeType === "application/vnd.google-apps.folder";
+                const bIsFolder = b.mimeType === "application/vnd.google-apps.folder";
+                if (aIsFolder && !bIsFolder) return -1;
+                if (!aIsFolder && bIsFolder) return 1;
+                return a.name.localeCompare(b.name);
+              })
+              .map((child) => (
+                <SidebarTreeItem 
+                  key={child.id} 
+                  folder={child} 
+                  level={level + 1} 
+                  currentFolder={currentFolder} 
+                  onFolderChange={onFolderChange}
+                  autoExpandPath={autoExpandPath}
+                />
+              ))
           )}
           {hasFetched && children.length === 0 && !loading && (
              <p 
@@ -194,6 +206,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
     </div>
   );
 }
+
 
 // ─── Main Sidebar Component ───────────────────────────────────────────────
 export function Sidebar({
