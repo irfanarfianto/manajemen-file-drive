@@ -282,105 +282,127 @@ export async function getRevisions(
 }
 
 // =============================================
-// KANBAN DATA (Saved as Hidden JSON in Drive)
+// APP FOLDER — semua data app disimpan di sini
 // =============================================
-export const KANBAN_FILE_NAME = "DriveManager_Kanban_Data.json";
+export const APP_FOLDER_NAME = "DriveManager Data";
 
-export async function getKanbanData(accessToken: string) {
+/**
+ * Cari atau buat folder khusus aplikasi di root Drive.
+ * Semua file JSON data (Kanban, catatan revisi, dll) tersimpan di sini.
+ */
+export async function getOrCreateAppFolder(accessToken: string): Promise<string> {
   const drive = getDriveClient(accessToken);
-  const response = await drive.files.list({
-    q: `name = '${KANBAN_FILE_NAME}' and trashed = false`,
+
+  // Cari folder yang sudah ada
+  const search = await drive.files.list({
+    q: `name = '${APP_FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and 'root' in parents and trashed = false`,
     fields: "files(id)",
   });
-  
-  const files = response.data.files;
-  if (!files || files.length === 0) {
-    return {
-      columns: [
-        { id: "todo", title: "To Do", tasks: [] },
-        { id: "doing", title: "In Progress", tasks: [] },
-        { id: "done", title: "Done", tasks: [] },
-      ],
-    };
+
+  if (search.data.files && search.data.files.length > 0) {
+    return search.data.files[0].id!;
   }
-  
-  const fileId = files[0].id!;
-  const fileRes = await drive.files.get({ fileId, alt: "media" }, { responseType: "text" });
+
+  // Buat folder baru
+  const folder = await drive.files.create({
+    requestBody: {
+      name: APP_FOLDER_NAME,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: ["root"],
+    },
+    fields: "id",
+  });
+
+  return folder.data.id!;
+}
+
+// ──────────────────────────────────────────────
+// Helper: baca file JSON dari app folder
+// ──────────────────────────────────────────────
+async function readAppJson(
+  accessToken: string,
+  fileName: string,
+  defaultValue: any
+): Promise<any> {
+  const drive = getDriveClient(accessToken);
+  const folderId = await getOrCreateAppFolder(accessToken);
+
+  const search = await drive.files.list({
+    q: `name = '${fileName}' and '${folderId}' in parents and trashed = false`,
+    fields: "files(id)",
+  });
+
+  const files = search.data.files;
+  if (!files || files.length === 0) return defaultValue;
+
+  const fileRes = await drive.files.get(
+    { fileId: files[0].id!, alt: "media" },
+    { responseType: "text" }
+  );
   return typeof fileRes.data === "string" ? JSON.parse(fileRes.data) : fileRes.data;
 }
 
-export async function saveKanbanData(accessToken: string, data: any) {
+// ──────────────────────────────────────────────
+// Helper: simpan file JSON ke app folder
+// ──────────────────────────────────────────────
+async function writeAppJson(
+  accessToken: string,
+  fileName: string,
+  data: any
+): Promise<void> {
   const drive = getDriveClient(accessToken);
-  const response = await drive.files.list({
-    q: `name = '${KANBAN_FILE_NAME}' and trashed = false`,
+  const folderId = await getOrCreateAppFolder(accessToken);
+
+  const search = await drive.files.list({
+    q: `name = '${fileName}' and '${folderId}' in parents and trashed = false`,
     fields: "files(id)",
   });
-  
-  const files = response.data.files;
-  const media = {
-    mimeType: "application/json",
-    body: JSON.stringify(data),
-  };
+
+  const media = { mimeType: "application/json", body: JSON.stringify(data) };
+  const files = search.data.files;
 
   if (!files || files.length === 0) {
     await drive.files.create({
-      requestBody: { name: KANBAN_FILE_NAME, parents: ["root"] },
-      media: media,
+      requestBody: { name: fileName, parents: [folderId] },
+      media,
       fields: "id",
     });
   } else {
-    await drive.files.update({
-      fileId: files[0].id!,
-      media: media,
-    });
+    await drive.files.update({ fileId: files[0].id!, media });
   }
+}
+
+// =============================================
+// KANBAN DATA
+// =============================================
+export const KANBAN_FILE_NAME = "kanban.json";
+
+export async function getKanbanData(accessToken: string) {
+  return readAppJson(accessToken, KANBAN_FILE_NAME, {
+    columns: [
+      { id: "todo", title: "To Do", tasks: [] },
+      { id: "doing", title: "In Progress", tasks: [] },
+      { id: "done", title: "Done", tasks: [] },
+    ],
+  });
+}
+
+export async function saveKanbanData(accessToken: string, data: any) {
+  return writeAppJson(accessToken, KANBAN_FILE_NAME, data);
 }
 
 // =============================================
 // FILE REVISION NOTES (Per-File Checklist)
 // =============================================
-export const FILE_NOTES_NAME = "DriveManager_FileNotes.json";
+export const FILE_NOTES_NAME = "file-notes.json";
 
 export async function getFileNotes(accessToken: string) {
-  const drive = getDriveClient(accessToken);
-  const response = await drive.files.list({
-    q: `name = '${FILE_NOTES_NAME}' and trashed = false`,
-    fields: "files(id)",
-  });
-
-  const files = response.data.files;
-  if (!files || files.length === 0) {
-    return { files: {} };
-  }
-
-  const fileId = files[0].id!;
-  const fileRes = await drive.files.get({ fileId, alt: "media" }, { responseType: "text" });
-  return typeof fileRes.data === "string" ? JSON.parse(fileRes.data) : fileRes.data;
+  return readAppJson(accessToken, FILE_NOTES_NAME, { files: {} });
 }
 
 export async function saveFileNotes(accessToken: string, data: any) {
-  const drive = getDriveClient(accessToken);
-  const response = await drive.files.list({
-    q: `name = '${FILE_NOTES_NAME}' and trashed = false`,
-    fields: "files(id)",
-  });
-
-  const files = response.data.files;
-  const media = {
-    mimeType: "application/json",
-    body: JSON.stringify(data),
-  };
-
-  if (!files || files.length === 0) {
-    await drive.files.create({
-      requestBody: { name: FILE_NOTES_NAME, parents: ["root"] },
-      media: media,
-      fields: "id",
-    });
-  } else {
-    await drive.files.update({
-      fileId: files[0].id!,
-      media: media,
-    });
-  }
+  return writeAppJson(accessToken, FILE_NOTES_NAME, data);
 }
+
+
+
