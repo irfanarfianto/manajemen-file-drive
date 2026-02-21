@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Sidebar } from "@/components/drive/Sidebar";
 import { FileGrid } from "@/components/drive/FileGrid";
+import { KanbanBoard } from "@/components/drive/KanbanBoard";
 import { toast } from "sonner";
 import { 
   NewFolderModal, 
@@ -52,9 +53,11 @@ export default function DashboardPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
+  const isKanbanView = currentFolder === "kanban";
+
   const { files, loading, error, refetch } = useDriveFiles({
     folderId: currentFolder,
-    enabled: !searchQuery,
+    enabled: !searchQuery && !isKanbanView,
   });
   const { quota, refetch: refetchQuota } = useDriveQuota();
   const { results: searchResults, loading: searchLoading } = useDriveSearch(searchQuery);
@@ -330,75 +333,79 @@ export default function DashboardPage() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10">
-          {/* Breadcrumb */}
-          {!searchQuery && (
-            <Breadcrumb className="mb-6">
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink 
-                    onClick={() => handleBreadcrumb(-1)}
-                    className="cursor-pointer flex items-center gap-1 hover:text-primary transition-colors"
-                  >
-                    <Home className="h-3.5 w-3.5" />
-                    My Drive
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                {breadcrumbs.map((crumb, i) => (
-                  <div key={crumb.id} className="flex items-center gap-2">
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      {i === breadcrumbs.length - 1 ? (
-                        <BreadcrumbPage className="font-semibold text-foreground">
-                          {crumb.name}
-                        </BreadcrumbPage>
-                      ) : (
-                        <BreadcrumbLink 
-                          onClick={() => handleBreadcrumb(i)}
-                          className="cursor-pointer hover:text-primary transition-colors"
-                        >
-                          {crumb.name}
-                        </BreadcrumbLink>
-                      )}
-                    </BreadcrumbItem>
-                  </div>
-                ))}
-              </BreadcrumbList>
-            </Breadcrumb>
-          )}
+        {isKanbanView ? (
+          <KanbanBoard />
+        ) : (
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10">
+            {/* Breadcrumb */}
+            {!searchQuery && (
+              <Breadcrumb className="mb-6">
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink 
+                      onClick={() => handleBreadcrumb(-1)}
+                      className="cursor-pointer flex items-center gap-1 hover:text-primary transition-colors"
+                    >
+                      <Home className="h-3.5 w-3.5" />
+                      My Drive
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  {breadcrumbs.map((crumb, i) => (
+                    <div key={crumb.id} className="flex items-center gap-2">
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        {i === breadcrumbs.length - 1 ? (
+                          <BreadcrumbPage className="font-semibold text-foreground">
+                            {crumb.name}
+                          </BreadcrumbPage>
+                        ) : (
+                          <BreadcrumbLink 
+                            onClick={() => handleBreadcrumb(i)}
+                            className="cursor-pointer hover:text-primary transition-colors"
+                          >
+                            {crumb.name}
+                          </BreadcrumbLink>
+                        )}
+                      </BreadcrumbItem>
+                    </div>
+                  ))}
+                </BreadcrumbList>
+              </Breadcrumb>
+            )}
 
-          {/* Title & Count */}
-          <div className="flex items-end justify-between mb-8">
-            <div className="space-y-1">
-              <h1 className="text-3xl font-extrabold tracking-tight">
-                {searchQuery
-                  ? `Hasil pencarian "${searchQuery}"`
-                  : breadcrumbs.length > 0
-                  ? breadcrumbs[breadcrumbs.length - 1].name
-                  : "My Drive"}
-              </h1>
-              {!isLoading && (
-                <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5" />
-                  {displayFiles.length} item ditemukan
-                </p>
-              )}
+            {/* Title & Count */}
+            <div className="flex items-end justify-between mb-8">
+              <div className="space-y-1">
+                <h1 className="text-3xl font-extrabold tracking-tight">
+                  {searchQuery
+                    ? `Hasil pencarian "${searchQuery}"`
+                    : breadcrumbs.length > 0
+                    ? breadcrumbs[breadcrumbs.length - 1].name
+                    : "My Drive"}
+                </h1>
+                {!isLoading && (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5" />
+                    {displayFiles.length} item ditemukan
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* File grid */}
-          <FileGrid
-            files={displayFiles}
-            loading={isLoading}
-            error={error}
-            viewMode={viewMode}
-            selectedFiles={selectedFileIds}
-            onToggleSelect={handleToggleSelect}
-            onToggleAll={handleToggleAll}
-            onFolderOpen={handleFolderOpen}
-            onFileAction={handleFileAction}
-          />
-        </div>
+            {/* File grid */}
+            <FileGrid
+              files={displayFiles}
+              loading={isLoading}
+              error={error}
+              viewMode={viewMode}
+              selectedFiles={selectedFileIds}
+              onToggleSelect={handleToggleSelect}
+              onToggleAll={handleToggleAll}
+              onFolderOpen={handleFolderOpen}
+              onFileAction={handleFileAction}
+            />
+          </div>
+        )}
       </main>
 
       {/* Hidden file input for upload */}

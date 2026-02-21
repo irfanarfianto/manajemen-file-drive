@@ -250,10 +250,10 @@ export function FileGrid({
                 <div className="w-6 flex justify-center">
                   <Checkbox 
                     checked={isSelected}
-                    onCheckedChange={() => onToggleSelect(file.id)}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleSelect(file.id);
+                    onCheckedChange={(checked) => {
+                      if (checked !== isSelected) {
+                        onToggleSelect(file.id);
+                      }
                     }}
                   />
                 </div>
@@ -316,10 +316,10 @@ export function FileGrid({
               )}>
                 <Checkbox 
                   checked={isSelected}
-                  onCheckedChange={() => onToggleSelect(file.id)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleSelect(file.id);
+                  onCheckedChange={(checked) => {
+                    if (checked !== isSelected) {
+                      onToggleSelect(file.id);
+                    }
                   }}
                   className="bg-background/80 backdrop-blur-sm shadow-sm"
                 />

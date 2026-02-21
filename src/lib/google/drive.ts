@@ -280,3 +280,58 @@ export async function getRevisions(
   });
   return response.data.revisions || [];
 }
+
+// =============================================
+// KANBAN DATA (Saved as Hidden JSON in Drive)
+// =============================================
+export const KANBAN_FILE_NAME = "DriveManager_Kanban_Data.json";
+
+export async function getKanbanData(accessToken: string) {
+  const drive = getDriveClient(accessToken);
+  const response = await drive.files.list({
+    q: `name = '${KANBAN_FILE_NAME}' and trashed = false`,
+    fields: "files(id)",
+  });
+  
+  const files = response.data.files;
+  if (!files || files.length === 0) {
+    return {
+      columns: [
+        { id: "todo", title: "To Do", tasks: [] },
+        { id: "doing", title: "In Progress", tasks: [] },
+        { id: "done", title: "Done", tasks: [] },
+      ],
+    };
+  }
+  
+  const fileId = files[0].id!;
+  const fileRes = await drive.files.get({ fileId, alt: "media" }, { responseType: "text" });
+  return typeof fileRes.data === "string" ? JSON.parse(fileRes.data) : fileRes.data;
+}
+
+export async function saveKanbanData(accessToken: string, data: any) {
+  const drive = getDriveClient(accessToken);
+  const response = await drive.files.list({
+    q: `name = '${KANBAN_FILE_NAME}' and trashed = false`,
+    fields: "files(id)",
+  });
+  
+  const files = response.data.files;
+  const media = {
+    mimeType: "application/json",
+    body: JSON.stringify(data),
+  };
+
+  if (!files || files.length === 0) {
+    await drive.files.create({
+      requestBody: { name: KANBAN_FILE_NAME, parents: ["root"] },
+      media: media,
+      fields: "id",
+    });
+  } else {
+    await drive.files.update({
+      fileId: files[0].id!,
+      media: media,
+    });
+  }
+}

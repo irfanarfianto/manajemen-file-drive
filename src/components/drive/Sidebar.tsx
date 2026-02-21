@@ -9,7 +9,8 @@ import {
   LogOut,
   Loader2,
   Cloud,
-  GraduationCap
+  GraduationCap,
+  SquareKanban
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -61,6 +62,11 @@ export function Sidebar({
       id: "root",
       label: "My Drive",
       icon: <HardDrive className="h-4 w-4" />,
+    },
+    {
+      id: "kanban",
+      label: "Kanban Tugas",
+      icon: <SquareKanban className="h-4 w-4" />,
     },
   ];
 
