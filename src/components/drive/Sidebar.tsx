@@ -51,35 +51,49 @@ interface SidebarTreeItemProps {
   level: number;
   currentFolder: string;
   onFolderChange: (folderId: string) => void;
+  autoExpandPath: string[]; // Jalur ID yang harus otomatis terbuka
 }
 
-function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: SidebarTreeItemProps) {
+function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExpandPath }: SidebarTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [children, setChildren] = useState<DriveNode[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
 
   const isActive = currentFolder === folder.id;
+  const isFolder = folder.mimeType === "application/vnd.google-apps.folder";
 
-  const toggleExpand = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newExpanded = !isExpanded;
-    setIsExpanded(newExpanded);
-
-    if (newExpanded && !hasFetched) {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/drive/files?folderId=${folder.id}`);
-        const data = await res.json();
-        setChildren(data.files || []);
-        setHasFetched(true);
-      } catch (err) {
-        console.error("Failed to fetch sub-folders:", err);
-      } finally {
-        setLoading(false);
-      }
+  // Jalankan fetch children
+  const fetchData = async () => {
+    if (hasFetched || loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/drive/files?folderId=${folder.id}`);
+      const data = await res.json();
+      setChildren(data.files || []);
+      setHasFetched(true);
+    } catch (err) {
+      console.error("Failed to fetch sub-folders:", err);
+    } finally {
+      setLoading(false);
     }
   };
+
+  const toggleExpand = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!isFolder) return;
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    if (newExpanded) await fetchData();
+  };
+
+  // Efek untuk auto-expand jika ID folder ini ada di jalur yang harus dibuka
+  useEffect(() => {
+    if (isFolder && autoExpandPath.includes(folder.id)) {
+      setIsExpanded(true);
+      fetchData();
+    }
+  }, [autoExpandPath, folder.id, isFolder]);
 
   return (
     <div className="space-y-0.5">
@@ -92,7 +106,6 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: Sideb
         )}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
         onClick={() => {
-          const isFolder = folder.mimeType === "application/vnd.google-apps.folder";
           if (isFolder) {
             onFolderChange(folder.id);
           } else {
@@ -107,13 +120,12 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: Sideb
       >
         <div 
           onClick={(e) => {
-            const isFolder = folder.mimeType === "application/vnd.google-apps.folder";
             if (isFolder) toggleExpand(e);
             else e.stopPropagation();
           }}
           className={cn(
             "p-1 -ml-1 rounded-sm hover:bg-primary/20 transition-colors mr-0.5 z-10",
-            folder.mimeType !== "application/vnd.google-apps.folder" && "opacity-0 pointer-events-none"
+            !isFolder && "opacity-0 pointer-events-none"
           )}
         >
           <ChevronRight 
@@ -124,7 +136,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: Sideb
           />
         </div>
         
-        {folder.mimeType === "application/vnd.google-apps.folder" ? (
+        {isFolder ? (
           <Folder className={cn("h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground/60")} />
         ) : (
           <div className="h-3.5 w-3.5 shrink-0 flex items-center justify-center opacity-70">
@@ -157,6 +169,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: Sideb
                 level={level + 1} 
                 currentFolder={currentFolder} 
                 onFolderChange={onFolderChange}
+                autoExpandPath={autoExpandPath}
               />
             ))
           )}
@@ -188,6 +201,7 @@ export function Sidebar({
   
   const [rootFolders, setRootFolders] = useState<DriveNode[]>([]);
   const [rootLoading, setRootLoading] = useState(false);
+  const [autoExpandPath, setAutoExpandPath] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchRoot = async () => {
@@ -204,6 +218,27 @@ export function Sidebar({
     };
     fetchRoot();
   }, []);
+
+  // Efek untuk mencari path file yang sedang dibuka
+  useEffect(() => {
+    if (currentFolder === "root" || currentFolder === "kanban") {
+      setAutoExpandPath([]);
+      return;
+    }
+
+    const fetchPath = async () => {
+      try {
+        const res = await fetch(`/api/drive/file-path?fileId=${currentFolder}`);
+        const data = await res.json();
+        if (data.folderPath) {
+          setAutoExpandPath(data.folderPath.map((f: any) => f.id));
+        }
+      } catch (err) {
+        console.error("Failed to fetch path:", err);
+      }
+    };
+    fetchPath();
+  }, [currentFolder]);
 
   const usagePercent =
     quota?.limit && quota.usage
@@ -312,6 +347,7 @@ export function Sidebar({
                   level={0} 
                   currentFolder={currentFolder} 
                   onFolderChange={onFolderChange} 
+                  autoExpandPath={autoExpandPath}
                 />
               ))
             )}
