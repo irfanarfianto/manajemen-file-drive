@@ -45,8 +45,6 @@ export default function DashboardPage() {
     | null
   >(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
-
 
   const { files, loading, error, refetch } = useDriveFiles({
     folderId: currentFolder,
@@ -78,7 +76,6 @@ export default function DashboardPage() {
     const title = window.prompt("Masukkan nama folder skripsi:", `Skripsi ${new Date().getFullYear()}`);
     if (!title) return;
 
-    setIsCreatingTemplate(true);
     const t = toast.loading("Membuat struktur skripsi...");
     
     try {
@@ -94,8 +91,6 @@ export default function DashboardPage() {
       refetch();
     } catch (err) {
       toast.error((err as Error).message, { id: t });
-    } finally {
-      setIsCreatingTemplate(false);
     }
   };
 

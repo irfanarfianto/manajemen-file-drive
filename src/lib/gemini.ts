@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, Part } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -12,7 +12,7 @@ export async function summarizeText(content: string | { buffer: Buffer; mimeType
     Fokus pada: Tujuan, Metodologi (jika ada), dan Temuan/Kesimpulan Utama.
   `;
 
-  let parts: any[] = [{ text: systemPrompt }];
+  const parts: Part[] = [{ text: systemPrompt }];
 
   if (typeof content === "string") {
     parts.push({ text: `\n\nTEKS:\n${content.substring(0, 30000)}` });
@@ -22,12 +22,15 @@ export async function summarizeText(content: string | { buffer: Buffer; mimeType
         data: content.buffer.toString("base64"),
         mimeType: content.mimeType,
       },
+    });
+    parts.push({
       text: "\n\nTolong ringkas dokumen lampiran ini.",
     });
   }
 
   try {
     const result = await model.generateContent(parts);
+
     const response = await result.response;
     return response.text();
   } catch (err) {

@@ -221,7 +221,7 @@ export async function updateFileProperties(
   const drive = getDriveClient(accessToken);
   const response = await drive.files.update({
     fileId,
-    requestBody: { properties: properties as any },
+    requestBody: { properties: properties as Record<string, string> },
     fields: DRIVE_FILE_FIELDS,
     supportsAllDrives: true,
   });
