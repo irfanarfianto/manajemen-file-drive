@@ -10,9 +10,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Drive Manager — Kelola File Google Drive Kamu",
+  title: "Skripsi Drive — Kelola File Tugas & Skripsi Kamu",
   description:
-    "Dashboard modern untuk membuat, mengedit, dan mengelola file Google Drive dengan tampilan yang clean dan intuitif.",
+    "Dashboard modern untuk mengelola file tugas, penelitian, dan skripsi di Google Drive dengan tampilan yang clean dan intuitif.",
 };
 
 import { Toaster } from "@/components/ui/sonner";

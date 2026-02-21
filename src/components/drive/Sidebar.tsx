@@ -302,7 +302,7 @@ export function Sidebar({
             <path d="M87.3 52.95c0-1.55-.4-3.1-1.2-4.5l-14.7-25.4-14 24.2 14.15 24.55 15.75-14.85z" fill="#FFBA00" />
           </svg>
         </div>
-        <span className="font-bold text-lg tracking-tight">Drive Manager</span>
+        <span className="font-bold text-lg tracking-tight">Skripsi Drive</span>
       </div>
 
       <div className="px-4 mb-4 flex flex-col gap-2">

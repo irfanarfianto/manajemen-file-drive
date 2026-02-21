@@ -83,9 +83,9 @@ function LoginContent() {
           <div className="inline-flex p-4 rounded-3xl bg-primary/5 mb-6 ring-1 ring-primary/10">
             <DriveIcon />
           </div>
-          <h1 className="text-3xl font-black tracking-tight mb-3">Drive Manager</h1>
+          <h1 className="text-3xl font-black tracking-tight mb-3">Skripsi Drive</h1>
           <p className="text-muted-foreground leading-relaxed">
-            Kelola semua file Google Drive kamu dalam satu dashboard yang cepat dan modern
+            Kelola semua file tugas dan skripsi kamu dalam satu dashboard yang cepat dan modern
           </p>
         </div>
 
