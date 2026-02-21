@@ -7,7 +7,9 @@ import {
   LayoutGrid, 
   List, 
   Home,
-  FileText
+  FileText,
+  Menu,
+  Trash2
 } from "lucide-react";
 import { Sidebar } from "@/components/drive/Sidebar";
 import { FileGrid } from "@/components/drive/FileGrid";
@@ -30,6 +32,7 @@ import {
   BreadcrumbPage, 
   BreadcrumbSeparator 
 } from "@/components/ui/breadcrumb";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
@@ -40,11 +43,12 @@ export default function DashboardPage() {
   const [activeModal, setActiveModal] = useState<
     | { type: "newFolder" }
     | { type: "rename"; file: DriveFile }
-    | { type: "delete"; file: DriveFile }
+    | { type: "delete"; files: DriveFile[] }
     | { type: "preview"; file: DriveFile }
     | null
   >(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
   const { files, loading, error, refetch } = useDriveFiles({
     folderId: currentFolder,
@@ -166,26 +170,81 @@ export default function DashboardPage() {
         setActiveModal({ type: "rename", file });
         break;
       case "delete":
-        setActiveModal({ type: "delete", file });
+        setActiveModal({ type: "delete", files: [file] });
         break;
     }
   };
 
+  const handleBatchDelete = () => {
+    const filesToDelete = displayFiles.filter(f => selectedFileIds.has(f.id));
+    if (filesToDelete.length > 0) {
+      setActiveModal({ type: "delete", files: filesToDelete });
+    }
+  };
+
+  const clearSelection = () => setSelectedFileIds(new Set());
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedFileIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleToggleAll = () => {
+    if (selectedFileIds.size === displayFiles.length && displayFiles.length > 0) {
+      clearSelection();
+    } else {
+      setSelectedFileIds(new Set(displayFiles.map(f => f.id)));
+    }
+  };
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <Sidebar
-        currentFolder={currentFolder}
-        onFolderChange={(id) => { setCurrentFolder(id); setBreadcrumbs([]); }}
-        quota={quota}
-        onNewFolder={() => setActiveModal({ type: "newFolder" })}
-        onUpload={() => document.getElementById("file-upload-input")?.click()}
-        onThesisTemplate={handleThesisTemplate}
-      />
+    <div className="flex h-screen bg-background overflow-hidden relative">
+      {/* Desktop Sidebar */}
+      <div className="hidden md:flex">
+        <Sidebar
+          currentFolder={currentFolder}
+          onFolderChange={(id) => { setCurrentFolder(id); setBreadcrumbs([]); }}
+          quota={quota}
+          onNewFolder={() => setActiveModal({ type: "newFolder" })}
+          onUpload={() => document.getElementById("file-upload-input")?.click()}
+          onThesisTemplate={handleThesisTemplate}
+        />
+      </div>
 
       <main className="flex-1 flex flex-col min-w-0">
         {/* Header Bar */}
-        <header className="h-16 border-b bg-card/50 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6 gap-4">
+        <header className="h-16 border-b bg-card/50 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-4 lg:px-6 gap-2 lg:gap-4">
+          
+          {/* Mobile Menu */}
+          <div className="md:hidden flex items-center">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="p-0 flex flex-col w-[280px]">
+                <SheetTitle className="sr-only">Menu Navigasi</SheetTitle>
+                <Sidebar
+                  currentFolder={currentFolder}
+                  onFolderChange={(id) => { setCurrentFolder(id); setBreadcrumbs([]); }}
+                  quota={quota}
+                  onNewFolder={() => setActiveModal({ type: "newFolder" })}
+                  onUpload={() => document.getElementById("file-upload-input")?.click()}
+                  onThesisTemplate={handleThesisTemplate}
+                />
+              </SheetContent>
+            </Sheet>
+          </div>
+
           {/* Search */}
           <div className="flex-1 max-w-2xl relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
@@ -208,8 +267,36 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* View toggle */}
-          <div className="flex items-center bg-muted/40 p-1 rounded-xl">
+            {/* Batch actions (shown when items are selected) */}
+            {selectedFileIds.size > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground mr-2 hidden sm:inline-block">
+                  {selectedFileIds.size} terpilih
+                </span>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="h-8 gap-2"
+                  onClick={handleBatchDelete}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline-block">Hapus</span>
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 gap-2 text-muted-foreground"
+                  onClick={clearSelection}
+                >
+                  <X className="h-4 w-4" />
+                  <span className="hidden sm:inline-block">Batal</span>
+                </Button>
+                <div className="w-px h-6 bg-border mx-2"></div>
+              </div>
+            )}
+
+            {/* View toggle */}
+            <div className="flex items-center bg-muted/40 p-1 rounded-xl">
             <Button
               variant={viewMode === "grid" ? "secondary" : "ghost"}
               size="sm"
@@ -238,7 +325,7 @@ export default function DashboardPage() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-10">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10">
           {/* Breadcrumb */}
           {!searchQuery && (
             <Breadcrumb className="mb-6">
@@ -300,6 +387,9 @@ export default function DashboardPage() {
             loading={isLoading}
             error={error}
             viewMode={viewMode}
+            selectedFiles={selectedFileIds}
+            onToggleSelect={handleToggleSelect}
+            onToggleAll={handleToggleAll}
             onFolderOpen={handleFolderOpen}
             onFileAction={handleFileAction}
           />
@@ -335,8 +425,11 @@ export default function DashboardPage() {
         <DeleteModal
           open={true}
           onOpenChange={(open) => !open && setActiveModal(null)}
-          file={activeModal.file}
-          onDeleted={refetch}
+          files={activeModal.files}
+          onDeleted={() => {
+            refetch();
+            clearSelection();
+          }}
         />
       )}
       {activeModal?.type === "preview" && (

@@ -172,21 +172,21 @@ export function RenameModal({
 export function DeleteModal({
   open,
   onOpenChange,
-  file,
+  files,
   onDeleted,
-}: BaseModalProps & { file: DriveFile; onDeleted: () => void }) {
+}: BaseModalProps & { files: DriveFile[]; onDeleted: () => void }) {
   const [loading, setLoading] = useState(false);
 
   const handleDelete = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/drive/file", {
-        method: "DELETE",
+      const res = await fetch("/api/drive/batch-delete", {
+        method: "POST", // using POST for batch
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: file.id }),
+        body: JSON.stringify({ fileIds: files.map(f => f.id) }),
       });
       if (!res.ok) throw new Error("Gagal menghapus file");
-      toast.success("Berhasil memindahkan ke Trash");
+      toast.success(`Berhasil menghapus ${files.length} item ke Trash`);
       onDeleted();
       onOpenChange(false);
     } catch (err) {
@@ -201,7 +201,7 @@ export function DeleteModal({
         <DialogHeader>
           <DialogTitle>Hapus ke Trash</DialogTitle>
           <DialogDescription>
-            Yakin ingin memindahkan <span className="font-bold text-foreground">&ldquo;{file.name}&rdquo;</span> ke Trash? Kamu masih bisa memulihkannya nanti di Google Drive.
+            Yakin ingin memindahkan {files.length > 1 ? <span className="font-bold">{files.length} item</span> : <span className="font-bold text-foreground">&ldquo;{files[0]?.name}&rdquo;</span>} ke Trash? Kamu masih bisa memulihkannya nanti di Google Drive.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-4">
@@ -313,7 +313,10 @@ export function PreviewModal({
 
   const isImage = file.mimeType.startsWith("image/");
   const isPdf = file.mimeType === "application/pdf";
-  const canPreviewInFrame = isPdf || file.mimeType.includes("google-apps");
+  const isGoogleDoc = file.mimeType.includes("google-apps");
+  const canPreviewInFrame = isPdf || isGoogleDoc || file.mimeType.startsWith("text/") || file.mimeType.startsWith("video/") || file.mimeType.startsWith("audio/");
+
+  const previewUrl = `/api/drive/preview?fileId=${file.id}`;
 
 
   return (
@@ -386,8 +389,8 @@ export function PreviewModal({
               />
             ) : canPreviewInFrame ? (
               <iframe
-                src={file.webViewLink?.replace("/view", "/preview")}
-                className="w-full h-[60vh] rounded-lg border bg-white"
+                src={previewUrl}
+                className="w-full h-[60vh] rounded-lg border bg-white shadow-inner"
                 title={file.name}
               />
             ) : (

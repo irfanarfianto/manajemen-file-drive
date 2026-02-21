@@ -33,8 +33,14 @@ export async function summarizeText(content: string | { buffer: Buffer; mimeType
 
     const response = await result.response;
     return response.text();
-  } catch (err) {
+  } catch (err: any) {
     console.error("Gemini Error:", err);
+    
+    // Check for 429 Too Many Requests or Quota Exceeded error
+    if (err?.status === 429 || err?.message?.includes("429") || err?.message?.toLowerCase().includes("quota")) {
+      throw new Error("Batas limit request AI tercapai (Quota Exceeded). Silakan tunggu sekitar 1 menit lalu coba lagi.");
+    }
+    
     throw new Error("Gagal mendapatkan ringkasan dari AI");
   }
 }

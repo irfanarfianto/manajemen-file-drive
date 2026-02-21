@@ -4,12 +4,13 @@ import {
   AlertCircle,
   Download,
   ExternalLink,
-  Edit2,
-  Trash2,
   MoreVertical,
   Folder,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import { FileIcon } from "@/components/ui/FileIcon";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   formatFileSize,
   isFolder,
@@ -33,6 +34,9 @@ interface FileGridProps {
   loading: boolean;
   error: string | null;
   viewMode: "grid" | "list";
+  selectedFiles: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onToggleAll: () => void;
   onFolderOpen: (id: string, name: string) => void;
   onFileAction: (file: DriveFile, action: "delete" | "rename" | "open" | "download" | "preview") => void;
 }
@@ -141,6 +145,9 @@ export function FileGrid({
   loading,
   error,
   viewMode,
+  selectedFiles,
+  onToggleSelect,
+  onToggleAll,
   onFolderOpen,
   onFileAction,
 }: FileGridProps) {
@@ -192,9 +199,18 @@ export function FileGrid({
   }
 
   if (viewMode === "list") {
+    const allSelected = files.length > 0 && files.every(f => selectedFiles.has(f.id));
+    
     return (
       <div className="rounded-xl border bg-card overflow-hidden">
-        <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-3 bg-muted/30 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b">
+        <div className="grid grid-cols-[auto_auto_1fr_auto_auto_auto] gap-4 px-4 py-3 bg-muted/30 text-xs font-bold uppercase tracking-wider text-muted-foreground border-b items-center">
+          <div className="w-6 flex justify-center">
+            <Checkbox 
+              checked={allSelected} 
+              onCheckedChange={onToggleAll}
+              aria-label="Pilih semua file"
+            />
+          </div>
           <div className="w-8" />
           <div>Nama</div>
           <div className="w-24 text-right">Ukuran</div>
@@ -204,12 +220,36 @@ export function FileGrid({
         <div className="divide-y">
           {files.map((file) => {
             const folder = isFolder(file.mimeType);
+            const isSelected = selectedFiles.has(file.id);
+            
             return (
               <div
                 key={file.id}
-                className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-muted/50 cursor-pointer transition-colors group"
-                onClick={() => folder ? onFolderOpen(file.id, file.name) : file.webViewLink && window.open(file.webViewLink, "_blank")}
+                className={cn(
+                  "grid grid-cols-[auto_auto_1fr_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-muted/50 cursor-pointer transition-colors group",
+                  isSelected && "bg-primary/5 hover:bg-primary/10"
+                )}
+                onClick={(e) => {
+                  // If they clicked the checkbox directly, don't trigger the row click action
+                  const target = e.target as HTMLElement;
+                  if (target.closest('button[role="checkbox"]')) return;
+                  if (folder) {
+                    onFolderOpen(file.id, file.name);
+                  } else {
+                    onFileAction(file, "preview");
+                  }
+                }}
               >
+                <div className="w-6 flex justify-center">
+                  <Checkbox 
+                    checked={isSelected}
+                    onCheckedChange={() => onToggleSelect(file.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleSelect(file.id);
+                    }}
+                  />
+                </div>
                 <div className="w-8 flex justify-center">
                   <FileIcon mimeType={file.mimeType} size={24} />
                 </div>
@@ -241,19 +281,46 @@ export function FileGrid({
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       {files.map((file) => {
         const folder = isFolder(file.mimeType);
+        const isSelected = selectedFiles.has(file.id);
+        
         return (
           <Card 
             key={file.id}
             className={cn(
               "group relative overflow-hidden transition-all hover:shadow-md hover:border-primary/30 cursor-pointer bg-card/50 backdrop-blur-sm",
-              folder ? "border-l-4 border-l-primary/40" : ""
+              folder ? "border-l-4 border-l-primary/40" : "",
+              isSelected ? "ring-2 ring-primary bg-primary/5" : ""
             )}
-            onClick={() => folder ? onFolderOpen(file.id, file.name) : file.webViewLink && window.open(file.webViewLink, "_blank")}
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest('button[role="checkbox"]')) return;
+              if (folder) {
+                onFolderOpen(file.id, file.name);
+              } else {
+                onFileAction(file, "preview");
+              }
+            }}
           >
-            <CardContent className="p-4">
+            <CardContent className="p-4 relative">
+              {/* Checkbox overlay for grid items */}
+              <div className={cn(
+                "absolute top-3 left-3 z-10 transition-opacity",
+                isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              )}>
+                <Checkbox 
+                  checked={isSelected}
+                  onCheckedChange={() => onToggleSelect(file.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSelect(file.id);
+                  }}
+                  className="bg-background/80 backdrop-blur-sm shadow-sm"
+                />
+              </div>
+
               <div className="flex justify-between items-start mb-4">
                 <div className={cn(
-                  "p-2.5 rounded-xl transition-colors",
+                  "p-2.5 rounded-xl transition-colors ml-6", /* Added margin to make room for checkbox */
                   folder ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary"
                 )}>
                   <FileIcon mimeType={file.mimeType} size={28} />

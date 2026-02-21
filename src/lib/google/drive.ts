@@ -9,7 +9,7 @@ const DRIVE_FILE_FIELDS =
   "id,name,mimeType,size,modifiedTime,createdTime,parents,webViewLink,webContentLink,starred,trashed,owners,shared,thumbnailLink,properties";
 
 
-function getDriveClient(accessToken: string) {
+export function getDriveClient(accessToken: string) {
   const auth = new google.auth.OAuth2();
   auth.setCredentials({ access_token: accessToken });
   return google.drive({ version: "v3", auth });
@@ -242,4 +242,26 @@ export async function exportFile(
     { responseType: "stream" }
   );
   return response.data as NodeJS.ReadableStream;
+}
+
+// =============================================
+// BATCH DELETE FILES
+// =============================================
+export async function batchDeleteFiles(
+  accessToken: string,
+  fileIds: string[]
+): Promise<void> {
+  const drive = getDriveClient(accessToken);
+  
+  // Google Drive API does not have a native bulk delete endpoint in v3,
+  // so we execute them concurrently.
+  await Promise.all(
+    fileIds.map((fileId) => 
+      drive.files.delete({ fileId, supportsAllDrives: true })
+        .catch(err => {
+          console.error(`Failed to delete file ${fileId}:`, err);
+          // Don't throw here so we attempt to delete the rest
+        })
+    )
+  );
 }
