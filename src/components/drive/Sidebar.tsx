@@ -10,8 +10,7 @@ import {
   Loader2,
   Cloud,
   GraduationCap,
-  SquareKanban,
-  FileEdit
+  SquareKanban
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -27,7 +26,6 @@ interface SidebarProps {
   onNewFolder: () => void;
   onUpload: () => void;
   onThesisTemplate: () => void;
-  onNewNote?: () => void;
 }
 
 
@@ -45,7 +43,6 @@ export function Sidebar({
   onNewFolder,
   onUpload,
   onThesisTemplate,
-  onNewNote,
 }: SidebarProps) {
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
@@ -107,15 +104,6 @@ export function Sidebar({
         >
           <FolderPlus className="h-4 w-4" />
           Folder Baru
-        </Button>
-        <Button 
-          variant="secondary" 
-          onClick={onNewNote} 
-          className="w-full justify-start gap-2 bg-secondary/50 hover:bg-secondary border border-dashed border-primary/20 text-primary"
-          id="sidebar-new-note-btn"
-        >
-          <FileEdit className="h-4 w-4" />
-          Catatan Baru
         </Button>
       </div>
 

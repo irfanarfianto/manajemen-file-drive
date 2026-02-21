@@ -22,8 +22,7 @@ import {
   RenameModal, 
   DeleteModal,
   PreviewModal,
-  RevisionsModal,
-  QuickNoteModal
+  RevisionsModal
 } from "@/components/drive/Modals";
 import { useDriveFiles, useDriveQuota, useDriveSearch } from "@/hooks/useDrive";
 import type { DriveFile } from "@/lib/drive-types";
@@ -48,7 +47,6 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeModal, setActiveModal] = useState<
     | { type: "newFolder" }
-    | { type: "quickNote" }
     | { type: "rename"; file: DriveFile }
     | { type: "delete"; files: DriveFile[] }
     | { type: "preview"; file: DriveFile }
@@ -266,7 +264,6 @@ export default function DashboardPage() {
           onNewFolder={() => setActiveModal({ type: "newFolder" })}
           onUpload={() => document.getElementById("file-upload-input")?.click()}
           onThesisTemplate={handleThesisTemplate}
-          onNewNote={() => setActiveModal({ type: "quickNote" })}
         />
       </div>
 
@@ -292,7 +289,6 @@ export default function DashboardPage() {
                   onNewFolder={() => setActiveModal({ type: "newFolder" })}
                   onUpload={() => document.getElementById("file-upload-input")?.click()}
                   onThesisTemplate={handleThesisTemplate}
-                  onNewNote={() => setActiveModal({ type: "quickNote" })}
                 />
               </SheetContent>
             </Sheet>
@@ -505,12 +501,7 @@ export default function DashboardPage() {
           file={activeModal.file}
         />
       )}
-      <QuickNoteModal
-        open={activeModal?.type === "quickNote"}
-        onOpenChange={(open) => !open && setActiveModal(null)}
-        currentFolder={currentFolder === "kanban" ? "root" : currentFolder}
-        onCreated={refetch}
-      />
+
       {activeModal?.type === "file-revisions" && (
         <FileRevisionModal
           open={true}
