@@ -330,8 +330,7 @@ export function Sidebar({
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 no-scrollbar">
-        <div className="min-w-full w-max pr-4">
-          <nav className="space-y-1 mb-6" aria-label="Drive navigation">
+        <nav className="space-y-1 mb-6" aria-label="Drive navigation">
           {navItems.map((item) => (
             <Button
               key={item.id}
@@ -374,24 +373,25 @@ export function Sidebar({
           </p>
           <div className="space-y-0.5">
             {rootLoading ? (
-              <div className="px-3 py-4 flex flex-col items-center justify-center gap-2">
+              <div className="px-3 py-8 flex flex-col items-center justify-center gap-2 w-full">
                 <Loader2 className="h-4 w-4 animate-spin text-primary/40" />
                 <span className="text-[10px] text-muted-foreground/50 font-medium">Memuat struktur...</span>
               </div>
             ) : (
-              rootFolders.map((folder) => (
-                <SidebarTreeItem 
-                  key={folder.id} 
-                  folder={folder} 
-                  level={0} 
-                  currentFolder={currentFolder} 
-                  onFolderChange={onFolderChange} 
-                  autoExpandPath={autoExpandPath}
-                />
-              ))
+              <div className="min-w-full w-max pr-8">
+                {rootFolders.map((folder) => (
+                  <SidebarTreeItem 
+                    key={folder.id} 
+                    folder={folder} 
+                    level={0} 
+                    currentFolder={currentFolder} 
+                    onFolderChange={onFolderChange} 
+                    autoExpandPath={autoExpandPath}
+                  />
+                ))}
+              </div>
             )}
           </div>
-        </div>
         </div>
         <ScrollBar orientation="horizontal" className="h-1.5" />
       </ScrollArea>
