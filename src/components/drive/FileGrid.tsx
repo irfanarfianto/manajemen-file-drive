@@ -325,9 +325,9 @@ export function FileGrid({
                   )}>
                     <FileIcon mimeType={file.mimeType} size={28} />
                   </div>
-                  {/* Checkbox di pojok kiri bawah icon container */}
+                  {/* Checkbox di pojok kiri atas icon container */}
                   <div className={cn(
-                    "absolute -bottom-1.5 -left-1.5 z-10 transition-opacity",
+                    "absolute -top-1.5 -left-1.5 z-10 transition-opacity",
                     isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                   )}>
                     <Checkbox
