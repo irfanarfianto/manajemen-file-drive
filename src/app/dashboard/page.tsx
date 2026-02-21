@@ -162,7 +162,26 @@ export default function DashboardPage() {
     }
   };
 
+  // Format Office yang dibuka langsung di Google Docs
+  const OFFICE_MIMETYPES = new Set([
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+    "application/msword",                                                        // .doc
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",        // .xlsx
+    "application/vnd.ms-excel",                                                  // .xls
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",// .pptx
+    "application/vnd.ms-powerpoint",                                             // .ppt
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.presentation",
+  ]);
+
   const navigateToPreview = (file: DriveFile) => {
+    // File Office → buka langsung sebagai Google Docs di tab baru
+    if (OFFICE_MIMETYPES.has(file.mimeType) && file.webViewLink) {
+      window.open(file.webViewLink, "_blank", "noopener,noreferrer");
+      return;
+    }
+
     const tags = Object.keys(file.properties || {})
       .filter(k => k.startsWith("tag_"))
       .map(k => k.replace("tag_", ""));

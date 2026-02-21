@@ -3,19 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { downloadFile, exportFile, getDriveClient } from "@/lib/google/drive";
 
-// Format Office yang dikonversi ke PDF via Google Drive copy + export
-const OFFICE_TO_PDF_TYPES = new Set([
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-  "application/msword",                                                        // .doc
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",        // .xlsx
-  "application/vnd.ms-excel",                                                  // .xls
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",// .pptx
-  "application/vnd.ms-powerpoint",                                             // .ppt
-  "application/vnd.oasis.opendocument.text",                                   // .odt
-  "application/vnd.oasis.opendocument.spreadsheet",                            // .ods
-  "application/vnd.oasis.opendocument.presentation",                           // .odp
-]);
-
 function nodeStreamToWebStream(nodeStream: NodeJS.ReadableStream): ReadableStream {
   return new ReadableStream({
     start(controller) {
@@ -54,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const mimeType = file.data.mimeType || "";
 
-    // 1. Google Workspace docs (Docs, Sheets, Slides) → export langsung ke PDF
+    // Google Workspace (Docs, Sheets, Slides) → export sebagai PDF untuk iframe
     if (mimeType.includes("google-apps")) {
       const stream = await exportFile(session.accessToken, fileId, "application/pdf");
       return new Response(nodeStreamToWebStream(stream), {
@@ -62,29 +49,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 2. Format Office (DOCX, XLSX, PPTX, dll) → salin ke Drive lalu export PDF
-    if (OFFICE_TO_PDF_TYPES.has(mimeType)) {
-      try {
-        const copyRes = await drive.files.copy({
-          fileId,
-          requestBody: { name: `__preview_temp_${fileId}` },
-        });
-        const copyId = copyRes.data.id!;
-
-        const stream = await exportFile(session.accessToken, copyId, "application/pdf");
-        // Hapus salinan sementara (non-blocking)
-        drive.files.delete({ fileId: copyId }).catch(() => {});
-
-        return new Response(nodeStreamToWebStream(stream), {
-          headers: { "Content-Type": "application/pdf", "Content-Disposition": "inline" },
-        });
-      } catch (convErr) {
-        console.warn("[preview] Office conversion failed, falling back to raw stream:", convErr);
-        // Fallback ke stream langsung kalau konversi gagal
-      }
-    }
-
-    // 3. File lain (PDF, gambar, video, teks, dll) → stream langsung
+    // File lain (PDF, gambar, teks, video, audio) → stream langsung
     const { data: stream, mimeType: downloadMimeType } = await downloadFile(
       session.accessToken,
       fileId
