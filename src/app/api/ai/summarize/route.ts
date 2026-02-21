@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { downloadFile, exportFile } from "@/lib/google/drive";
 import { summarizeText } from "@/lib/gemini";
-const pdf = require("pdf-parse");
 
 // Helper to convert stream to buffer
 async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
@@ -30,6 +29,7 @@ export async function POST(request: NextRequest) {
 
     let buffer: Buffer;
     let text = "";
+    let summary = "";
 
     const isGoogleDoc = mimeType?.includes("google-apps.document");
     const isPdf = mimeType === "application/pdf";
@@ -39,17 +39,34 @@ export async function POST(request: NextRequest) {
       const stream = await exportFile(session.accessToken, fileId, "text/plain");
       buffer = await streamToBuffer(stream);
       text = buffer.toString("utf-8");
+      
+      if (!text.trim()) {
+        return NextResponse.json({ error: "File kosong atau tidak terbaca." }, { status: 400 });
+      }
+      summary = await summarizeText(text);
+
     } else if (isPdf) {
-      // Download PDF and parse
+      // Download PDF and let Gemini process it natively
       const { data: stream } = await downloadFile(session.accessToken, fileId);
       buffer = await streamToBuffer(stream);
-      const data = await pdf(buffer);
-      text = data.text;
+      
+      if (buffer.length === 0) {
+       return NextResponse.json({ error: "File PDF kosong." }, { status: 400 });
+      }
+      
+      summary = await summarizeText({ buffer, mimeType: "application/pdf" });
+
     } else if (mimeType?.startsWith("text/")) {
       // Plain text files
       const { data: stream } = await downloadFile(session.accessToken, fileId);
       buffer = await streamToBuffer(stream);
       text = buffer.toString("utf-8");
+      
+      if (!text.trim()) {
+        return NextResponse.json({ error: "File kosong atau tidak terbaca." }, { status: 400 });
+      }
+      summary = await summarizeText(text);
+
     } else {
       return NextResponse.json(
         { error: "Tipe file ini tidak didukung untuk peringkasan saat ini." },
@@ -57,13 +74,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!text.trim()) {
-      return NextResponse.json({ error: "File kosong atau tidak terbaca." }, { status: 400 });
-    }
-
-    const summary = await summarizeText(text);
-
     return NextResponse.json({ summary });
+
   } catch (err: unknown) {
     console.error("[summarize] error:", err);
     return NextResponse.json(
