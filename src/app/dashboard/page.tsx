@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Search, 
   X, 
@@ -40,6 +41,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { cn } from "@/lib/utils";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [currentFolder, setCurrentFolder] = useState("root");
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -160,17 +162,32 @@ export default function DashboardPage() {
     }
   };
 
+  const navigateToPreview = (file: DriveFile) => {
+    const tags = Object.keys(file.properties || {})
+      .filter(k => k.startsWith("tag_"))
+      .map(k => k.replace("tag_", ""));
+    const params = new URLSearchParams({
+      fileId: file.id,
+      fileName: file.name,
+      mimeType: file.mimeType,
+      fileSize: file.size || "0",
+      webViewLink: file.webViewLink || "",
+      tags: tags.join(","),
+    });
+    router.push(`/dashboard/preview?${params.toString()}`);
+  };
+
   const handleFileAction = (file: DriveFile, action: string) => {
     switch (action) {
       case "open":
         if (file.mimeType === "application/vnd.google-apps.folder") {
           setCurrentFolder(file.id);
         } else {
-          setActiveModal({ type: "preview", file });
+          navigateToPreview(file);
         }
         break;
       case "preview":
-        setActiveModal({ type: "preview", file });
+        navigateToPreview(file);
         break;
       case "download":
         handleDownload(file);
@@ -185,7 +202,7 @@ export default function DashboardPage() {
         setActiveModal({ type: "revisions", file });
         break;
       case "file-revisions":
-        setActiveModal({ type: "file-revisions", file });
+        navigateToPreview(file);
         break;
     }
   };
