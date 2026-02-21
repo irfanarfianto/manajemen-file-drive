@@ -87,13 +87,21 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
     if (newExpanded) await fetchData();
   };
 
-  // Efek untuk auto-expand jika ID folder ini ada di jalur yang harus dibuka
+  // Efek untuk auto-expand JALUR AKTIF dan auto-collapse JALUR LAIN
   useEffect(() => {
-    if (isFolder && autoExpandPath.includes(folder.id)) {
+    if (!isFolder) return;
+
+    const isInPath = autoExpandPath.includes(folder.id);
+    const isCurrentTarget = folder.id === currentFolder;
+
+    if (isInPath || isCurrentTarget) {
       setIsExpanded(true);
       fetchData();
+    } else if (autoExpandPath.length > 0) {
+      // Jika ada navigasi aktif (path tidak kosong) dan folder ini bukan bagian dari path, tutup saja.
+      setIsExpanded(false);
     }
-  }, [autoExpandPath, folder.id, isFolder]);
+  }, [autoExpandPath, folder.id, isFolder, currentFolder]);
 
   return (
     <div className="space-y-0.5">
