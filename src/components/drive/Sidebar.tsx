@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { 
   FolderPlus, 
@@ -9,6 +9,9 @@ import {
   LogOut,
   Loader2,
   Cloud,
+  ChevronRight,
+  Folder,
+  FolderOpen,
   GraduationCap,
   SquareKanban
 } from "lucide-react";
@@ -26,6 +29,17 @@ interface SidebarProps {
   onNewFolder: () => void;
   onUpload: () => void;
   onThesisTemplate: () => void;
+}
+
+interface FolderNode {
+  id: string;
+  name: string;
+}
+
+interface DriveSibling {
+  id: string;
+  name: string;
+  mimeType: string;
 }
 
 
@@ -46,6 +60,35 @@ export function Sidebar({
 }: SidebarProps) {
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  
+  // Folder Tree States
+  const [folderPath, setFolderPath] = useState<FolderNode[]>([]);
+  const [siblings, setSiblings] = useState<DriveSibling[]>([]);
+  const [treeLoading, setTreeLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentFolder === "root" || currentFolder === "kanban") {
+      setFolderPath([]);
+      setSiblings([]);
+      return;
+    }
+
+    const fetchTree = async () => {
+      setTreeLoading(true);
+      try {
+        const res = await fetch(`/api/drive/file-path?fileId=${currentFolder}`);
+        const data = await res.json();
+        setFolderPath(data.folderPath || []);
+        setSiblings(data.siblings || []);
+      } catch (error) {
+        console.error("Failed to fetch tree:", error);
+      } finally {
+        setTreeLoading(false);
+      }
+    };
+
+    fetchTree();
+  }, [currentFolder]);
 
   const usagePercent =
     quota?.limit && quota.usage
@@ -111,7 +154,7 @@ export function Sidebar({
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3">
-        <nav className="space-y-1" aria-label="Drive navigation">
+        <nav className="space-y-1 mb-6" aria-label="Drive navigation">
           {navItems.map((item) => (
             <Button
               key={item.id}
@@ -134,7 +177,71 @@ export function Sidebar({
           ))}
         </nav>
 
-        <div className="mt-6 mb-2 px-3">
+        {/* Dynamic Folder Tree */}
+        {currentFolder !== "root" && currentFolder !== "kanban" && (
+          <div className="mb-6 space-y-4">
+            <div>
+              <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">
+                Hirarki Folder
+              </p>
+              <nav className="space-y-0.5">
+                {treeLoading ? (
+                  <div className="px-3 py-2 flex items-center gap-2">
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/40" />
+                    <span className="text-[11px] text-muted-foreground/50">Memuat hirarki...</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Path Breadcrumbs in Sidebar */}
+                    <div className="space-y-0.5 px-1">
+                      {folderPath.map((folder, i) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => onFolderChange(folder.id)}
+                          className={cn(
+                            "flex items-center gap-1.5 w-full text-left px-2 py-1 rounded transition-colors text-[11px]",
+                            folder.id === currentFolder 
+                              ? "bg-primary/5 text-primary font-semibold" 
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                          )}
+                          style={{ paddingLeft: `${(i + 1) * 8}px` }}
+                        >
+                          <ChevronRight className="h-2.5 w-2.5 shrink-0 opacity-40" />
+                          <Folder className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{folder.name}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <Separator className="my-2 opacity-50 mx-2" />
+
+                    {/* Siblings/Contents List */}
+                    <div className="space-y-0.5 px-1">
+                      <p className="px-2 text-[9px] font-semibold text-muted-foreground/40 uppercase mb-1">Isi Folder Ini</p>
+                      {siblings.length === 0 ? (
+                        <p className="px-2 py-1 text-[10px] text-muted-foreground/30 italic">Folder kosong</p>
+                      ) : (
+                        siblings.filter(f => f.mimeType === "application/vnd.google-apps.folder").map(folder => (
+                          <button
+                            key={folder.id}
+                            onClick={() => onFolderChange(folder.id)}
+                            className="flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-[11px] text-foreground/60 hover:bg-muted/60 hover:text-foreground transition-all"
+                            style={{ paddingLeft: `${(folderPath.length + 1) * 8}px` }}
+                          >
+                            <FolderOpen className="h-3 w-3 shrink-0 text-muted-foreground/60" />
+                            <span className="truncate">{folder.name}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+              </nav>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-2 px-3">
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
             Alat Mahasiswa
           </p>
