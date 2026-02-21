@@ -256,7 +256,18 @@ function PreviewPageInner() {
   const isImage = mimeType.startsWith("image/");
   const isPdf = mimeType === "application/pdf";
   const isGoogleDoc = mimeType.includes("google-apps");
-  const canPreviewInFrame = isPdf || isGoogleDoc || mimeType.startsWith("text/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/");
+  const isOfficeDoc = [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.presentation",
+  ].includes(mimeType);
+  const canPreviewInFrame = isPdf || isGoogleDoc || isOfficeDoc || mimeType.startsWith("text/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/");
   const previewUrl = `/api/drive/preview?fileId=${fileId}`;
 
   const handleDownload = async () => {
