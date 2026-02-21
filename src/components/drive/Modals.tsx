@@ -21,9 +21,12 @@ import {
   FileText, 
   Tag,
   Plus,
-  X as CloseIcon
+  X as CloseIcon,
+  Sparkles
 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { DriveFile } from "@/lib/drive-types";
 import { formatFileSize } from "@/lib/drive-types";
 
@@ -230,10 +233,40 @@ export function PreviewModal({
 }) {
   const [newTag, setNewTag] = useState("");
   const [isUpdatingTags, setIsUpdatingTags] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
   const tags = Object.keys(file.properties || {})
     .filter(k => k.startsWith("tag_"))
     .map(k => k.replace("tag_", ""));
+
+  const canSummarize = file.mimeType === "application/pdf" || 
+                       file.mimeType.includes("google-apps.document") ||
+                       file.mimeType.startsWith("text/");
+
+  const handleSummarize = async () => {
+    setIsSummarizing(true);
+    setSummary(null);
+    try {
+      const res = await fetch("/api/ai/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId: file.id, mimeType: file.mimeType }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Gagal meringkas");
+      }
+      const data = await res.json();
+      setSummary(data.summary);
+      toast.success("Ringkasan berhasil dibuat!");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
 
   const handleAddTag = async () => {
     if (!newTag.trim() || tags.includes(newTag.trim())) return;
@@ -337,51 +370,112 @@ export function PreviewModal({
         </DialogHeader>
 
 
-        <div className="flex-1 bg-muted/30 flex items-center justify-center min-h-[300px] overflow-auto relative p-4">
-          {isImage ? (
-            <Image
-              src={file.thumbnailLink?.replace("=s220", "=s1000") || file.webViewLink || ""}
-              alt={file.name}
-              width={1000}
-              height={1000}
-              unoptimized
-              className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
-            />
-          ) : canPreviewInFrame ? (
-            <iframe
-              src={file.webViewLink?.replace("/view", "/preview")}
-              className="w-full h-[60vh] rounded-lg border bg-white"
-              title={file.name}
-            />
-          ) : (
-            <div className="text-center p-12 bg-card rounded-2xl border shadow-sm max-w-sm">
-              <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <FileText className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Pratinjau tidak tersedia</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Tipe file ini tidak dapat dipratinjau langsung. Silakan buka di Google Drive atau download untuk melihatnya.
-              </p>
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" size="sm" onClick={() => onDownload(file)}>
-                  <Download className="mr-2 h-4 w-4" /> Download
-                </Button>
-                {file.webViewLink && (
-                  <Button size="sm" onClick={() => window.open(file.webViewLink, "_blank")}>
-                    <ExternalLink className="mr-2 h-4 w-4" /> Buka di Drive
+        <div className="flex-1 bg-muted/30 flex flex-col md:flex-row min-h-[400px] overflow-hidden">
+          <div className={cn(
+            "flex-1 flex items-center justify-center p-4 overflow-auto",
+            summary ? "md:border-r" : ""
+          )}>
+            {isImage ? (
+              <Image
+                src={file.thumbnailLink?.replace("=s220", "=s1000") || file.webViewLink || ""}
+                alt={file.name}
+                width={1000}
+                height={1000}
+                unoptimized
+                className="max-w-full max-h-full object-contain rounded-lg shadow-xl"
+              />
+            ) : canPreviewInFrame ? (
+              <iframe
+                src={file.webViewLink?.replace("/view", "/preview")}
+                className="w-full h-[60vh] rounded-lg border bg-white"
+                title={file.name}
+              />
+            ) : (
+              <div className="text-center p-12 bg-card rounded-2xl border shadow-sm max-w-sm">
+                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Pratinjau tidak tersedia</h3>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Tipe file ini tidak dapat dipratinjau langsung. Silakan buka di Google Drive atau download untuk melihatnya.
+                </p>
+                <div className="flex gap-2 justify-center">
+                  <Button variant="outline" size="sm" onClick={() => onDownload(file)}>
+                    <Download className="mr-2 h-4 w-4" /> Download
                   </Button>
-                )}
+                  {file.webViewLink && (
+                    <Button size="sm" onClick={() => window.open(file.webViewLink, "_blank")}>
+                      <ExternalLink className="mr-2 h-4 w-4" /> Buka di Drive
+                    </Button>
+                  )}
+                </div>
               </div>
+            )}
+          </div>
+
+          {/* AI Summary Panel */}
+          {(summary || isSummarizing) && (
+            <div className="w-full md:w-80 bg-card p-4 flex flex-col border-t md:border-t-0">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </div>
+                <h4 className="font-bold text-sm">Ringkasan AI</h4>
+              </div>
+              
+              <ScrollArea className="flex-1 pr-4">
+                {isSummarizing ? (
+                  <div className="space-y-3 py-4">
+                    <div className="h-4 bg-muted animate-pulse rounded w-full" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-5/6" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-4/6" />
+                    <div className="h-4 bg-muted animate-pulse rounded w-full" />
+                    <p className="text-[10px] text-center text-muted-foreground animate-pulse mt-4">
+                      Sedang membaca isi file...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+                    {summary}
+                  </div>
+                )}
+              </ScrollArea>
+              
+              {!isSummarizing && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Dihasilkan oleh Gemini AI. Selalu verifikasi informasi penting.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
 
+
         <DialogFooter className="p-4 bg-card border-t flex-row justify-between items-center sm:justify-between">
           <div className="flex gap-2">
+            {canSummarize && !summary && (
+              <Button 
+                onClick={handleSummarize} 
+                disabled={isSummarizing}
+                variant="secondary"
+                className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
+                size="sm"
+              >
+                {isSummarizing ? (
+                  <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                ) : (
+                  <Sparkles className="h-4 w-4 sm:mr-2" />
+                )}
+                <span className="hidden sm:inline">Ringkas dengan AI</span>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => onDownload(file)}>
               <Download className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Download</span>
             </Button>
+
             {file.webViewLink && (
               <Button variant="outline" size="sm" onClick={() => window.open(file.webViewLink, "_blank")}>
                 <ExternalLink className="h-4 w-4 sm:mr-2" />

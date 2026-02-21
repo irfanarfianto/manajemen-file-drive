@@ -228,4 +228,18 @@ export async function updateFileProperties(
   return response.data as DriveFile;
 }
 
-
+// =============================================
+// EXPORT GOOGLE DOCUMENT (to PDF/Text)
+// =============================================
+export async function exportFile(
+  accessToken: string,
+  fileId: string,
+  mimeType = "application/pdf"
+): Promise<NodeJS.ReadableStream> {
+  const drive = getDriveClient(accessToken);
+  const response = await drive.files.export(
+    { fileId, mimeType },
+    { responseType: "stream" }
+  );
+  return response.data as NodeJS.ReadableStream;
+}
