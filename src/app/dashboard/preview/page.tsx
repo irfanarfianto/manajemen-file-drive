@@ -22,6 +22,7 @@ interface RevisionItem {
   text: string;
   done: boolean;
   createdAt: string;
+  page?: number;
 }
 interface FileNotesData {
   files: Record<string, { fileName: string; revisions: RevisionItem[] }>;
@@ -33,6 +34,7 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newText, setNewText] = useState("");
+  const [newPage, setNewPage] = useState("");
 
   const revisions: RevisionItem[] = allData.files?.[fileId]?.revisions ?? [];
   const doneCount = revisions.filter(r => r.done).length;
@@ -74,10 +76,13 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
   const handleAdd = async () => {
     const text = newText.trim();
     if (!text) return;
+    const page = newPage.trim() ? parseInt(newPage.trim(), 10) : undefined;
     setNewText("");
+    setNewPage("");
     await save(withUpdated([...revisions, {
       id: Date.now().toString(), text, done: false,
       createdAt: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+      ...(page && !isNaN(page) ? { page } : {}),
     }]));
   };
 
@@ -153,9 +158,16 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
                     : <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className={cn("text-[13px] leading-snug break-words", item.done && "line-through text-muted-foreground")}>
-                    {item.text}
-                  </p>
+                  <div className="flex items-start gap-1.5 flex-wrap">
+                    {item.page && (
+                      <span className="inline-flex items-center shrink-0 bg-primary/10 text-primary border border-primary/20 rounded px-1.5 py-0.5 text-[10px] font-bold leading-none mt-0.5">
+                        Hal.&nbsp;{item.page}
+                      </span>
+                    )}
+                    <p className={cn("text-[13px] leading-snug break-words", item.done && "line-through text-muted-foreground")}>
+                      {item.text}
+                    </p>
+                  </div>
                   <p className="text-[10px] text-muted-foreground/50 mt-0.5">{item.createdAt}</p>
                 </div>
                 <button
@@ -172,18 +184,31 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
       </ScrollArea>
 
       {/* Add input */}
-      <div className="p-4 border-t bg-card/50 flex-shrink-0 flex gap-2">
-        <Input
-          placeholder="Tulis poin revisi..."
-          value={newText}
-          onChange={e => setNewText(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
-          disabled={saving || loading}
-          className="text-sm flex-1"
-        />
-        <Button size="icon" onClick={handleAdd} disabled={!newText.trim() || saving || loading} className="flex-shrink-0">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-        </Button>
+      <div className="p-4 border-t bg-card/50 flex-shrink-0 space-y-2">
+        <div className="flex gap-2">
+          <Input
+            placeholder="Tulis poin revisi..."
+            value={newText}
+            onChange={e => setNewText(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
+            disabled={saving || loading}
+            className="text-sm flex-1"
+          />
+          <Input
+            type="number"
+            placeholder="Hal."
+            value={newPage}
+            onChange={e => setNewPage(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
+            disabled={saving || loading}
+            className="w-14 text-sm text-center shrink-0"
+            min={1}
+          />
+          <Button size="icon" onClick={handleAdd} disabled={!newText.trim() || saving || loading} className="flex-shrink-0">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground/50">"Hal." opsional — isi nomor halaman jika ada.</p>
       </div>
     </div>
   );

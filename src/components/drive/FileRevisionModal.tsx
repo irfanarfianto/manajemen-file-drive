@@ -23,6 +23,7 @@ interface RevisionItem {
   text: string;
   done: boolean;
   createdAt: string;
+  page?: number;
 }
 
 interface FileNotesData {
@@ -43,6 +44,7 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newItemText, setNewItemText] = useState("");
+  const [newItemPage, setNewItemPage] = useState<string>("");
 
   const revisions: RevisionItem[] = allData.files?.[file.id]?.revisions ?? [];
   const doneCount = revisions.filter(r => r.done).length;
@@ -67,6 +69,7 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
     if (open) {
       fetchNotes();
       setNewItemText("");
+      setNewItemPage("");
     }
   }, [open, fetchNotes]);
 
@@ -98,13 +101,16 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
   const handleAdd = async () => {
     const text = newItemText.trim();
     if (!text) return;
+    const page = newItemPage.trim() ? parseInt(newItemPage.trim(), 10) : undefined;
     const newItem: RevisionItem = {
       id: Date.now().toString(),
       text,
       done: false,
       createdAt: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
+      ...(page && !isNaN(page) ? { page } : {}),
     };
     setNewItemText("");
+    setNewItemPage("");
     await saveData(getUpdatedData([...revisions, newItem]));
   };
 
@@ -241,12 +247,19 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "text-sm leading-snug break-words",
-                        item.done && "line-through text-muted-foreground"
-                      )}>
-                        {item.text}
-                      </p>
+                      <div className="flex items-start gap-1.5 flex-wrap">
+                        {item.page && (
+                          <span className="inline-flex items-center gap-0.5 shrink-0 bg-primary/10 text-primary border border-primary/20 rounded px-1.5 py-0.5 text-[10px] font-bold leading-none mt-0.5">
+                            Hal.&nbsp;{item.page}
+                          </span>
+                        )}
+                        <p className={cn(
+                          "text-sm leading-snug break-words",
+                          item.done && "line-through text-muted-foreground"
+                        )}>
+                          {item.text}
+                        </p>
+                      </div>
                       <p className="text-[11px] text-muted-foreground/50 mt-1">
                         {item.done ? "✓ Selesai · " : ""}{item.createdAt}
                       </p>
@@ -276,27 +289,40 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
               Menyimpan ke Drive...
             </div>
           )}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Tulis poin revisi dari dosen..."
-              value={newItemText}
-              onChange={(e) => setNewItemText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-              disabled={saving || loading}
-              className="flex-1 text-sm"
-            />
-            <Button
-              onClick={handleAdd}
-              disabled={!newItemText.trim() || saving || loading}
-              size="icon"
-              className="flex-shrink-0"
-            >
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </Button>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Tulis poin revisi dari dosen..."
+                value={newItemText}
+                onChange={(e) => setNewItemText(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+                disabled={saving || loading}
+                className="flex-1 text-sm"
+              />
+              <Input
+                type="number"
+                placeholder="Hal."
+                value={newItemPage}
+                onChange={(e) => setNewItemPage(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+                disabled={saving || loading}
+                className="w-16 text-sm text-center shrink-0"
+                min={1}
+              />
+              <Button
+                onClick={handleAdd}
+                disabled={!newItemText.trim() || saving || loading}
+                size="icon"
+                className="flex-shrink-0"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground/50">Kolom "Hal." bersifat opsional — isi jika revisi ada di halaman tertentu.</p>
           </div>
         </div>
       </SheetContent>
