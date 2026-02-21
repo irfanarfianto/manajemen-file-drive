@@ -129,6 +129,56 @@ function FilePicker({
 }
 
 // ─── Kanban Board ─────────────────────────────────────────────────────────
+
+// Palette warna per kolom — cycling jika kolom lebih dari yang didefinisikan
+const COLUMN_PALETTE = [
+  {
+    // To Do — Biru indigo
+    accent: "bg-indigo-500",
+    header: "bg-indigo-500/10 dark:bg-indigo-500/10",
+    badge: "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300",
+    card: "hover:border-indigo-400/50 hover:shadow-indigo-100/40 dark:hover:shadow-indigo-900/20",
+    addBtn: "hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300 dark:hover:border-indigo-500/30",
+    title: "text-indigo-700 dark:text-indigo-300",
+  },
+  {
+    // In Progress — Amber
+    accent: "bg-amber-500",
+    header: "bg-amber-500/10 dark:bg-amber-500/10",
+    badge: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+    card: "hover:border-amber-400/50 hover:shadow-amber-100/40 dark:hover:shadow-amber-900/20",
+    addBtn: "hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 dark:hover:bg-amber-500/10 dark:hover:text-amber-300 dark:hover:border-amber-500/30",
+    title: "text-amber-700 dark:text-amber-300",
+  },
+  {
+    // Done — Emerald
+    accent: "bg-emerald-500",
+    header: "bg-emerald-500/10 dark:bg-emerald-500/10",
+    badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+    card: "hover:border-emerald-400/50 hover:shadow-emerald-100/40 dark:hover:shadow-emerald-900/20",
+    addBtn: "hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300 dark:hover:border-emerald-500/30",
+    title: "text-emerald-700 dark:text-emerald-300",
+  },
+  {
+    // Extra — Purple
+    accent: "bg-purple-500",
+    header: "bg-purple-500/10 dark:bg-purple-500/10",
+    badge: "bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300",
+    card: "hover:border-purple-400/50 hover:shadow-purple-100/40 dark:hover:shadow-purple-900/20",
+    addBtn: "hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 dark:hover:bg-purple-500/10 dark:hover:text-purple-300 dark:hover:border-purple-500/30",
+    title: "text-purple-700 dark:text-purple-300",
+  },
+  {
+    // Extra — Rose
+    accent: "bg-rose-500",
+    header: "bg-rose-500/10 dark:bg-rose-500/10",
+    badge: "bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300",
+    card: "hover:border-rose-400/50 hover:shadow-rose-100/40 dark:hover:shadow-rose-900/20",
+    addBtn: "hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 dark:hover:bg-rose-500/10 dark:hover:text-rose-300 dark:hover:border-rose-500/30",
+    title: "text-rose-700 dark:text-rose-300",
+  },
+];
+
 export function KanbanBoard() {
   const [columns, setColumns] = useState<Column[]>([]);
   const [loading, setLoading] = useState(true);
@@ -300,18 +350,23 @@ export function KanbanBoard() {
 
       <ScrollArea className="flex-1">
         <div className="p-8 flex gap-6 items-start pb-10">
-          {columns.map((col, colIndex) => (
+          {columns.map((col, colIndex) => {
+            const palette = COLUMN_PALETTE[colIndex % COLUMN_PALETTE.length];
+            return (
             <div
               key={col.id}
-              className="flex-shrink-0 w-[320px] bg-card/60 backdrop-blur-sm border shadow-sm rounded-xl flex flex-col min-h-[500px]"
+              className="flex-shrink-0 w-[320px] bg-card/60 backdrop-blur-sm border shadow-sm rounded-xl flex flex-col min-h-[500px] overflow-hidden"
               onDragOver={onDragOver}
               onDrop={(e) => onDrop(e, col.id)}
             >
+              {/* Colored accent bar */}
+              <div className={cn("h-1 w-full", palette.accent)} />
+
               {/* Column header */}
-              <div className="p-4 bg-muted/30 flex items-center justify-between rounded-t-xl border-b">
-                <h3 className="font-bold text-[15px]">
+              <div className={cn("p-4 flex items-center justify-between border-b", palette.header)}>
+                <h3 className={cn("font-bold text-[15px]", palette.title)}>
                   {col.title}
-                  <span className="ml-2 text-xs font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
+                  <span className={cn("ml-2 text-[11px] font-semibold px-2 py-0.5 rounded-full", palette.badge)}>
                     {col.tasks.length}
                   </span>
                 </h3>
@@ -324,7 +379,10 @@ export function KanbanBoard() {
                     key={task.id}
                     draggable
                     onDragStart={(e) => onDragStart(e, task.id, col.id)}
-                    className="cursor-grab active:cursor-grabbing hover:shadow-md transition-all hover:border-primary/30 border-muted"
+                    className={cn(
+                      "cursor-grab active:cursor-grabbing transition-all border-muted hover:shadow-md",
+                      palette.card
+                    )}
                   >
                     <CardContent className="p-3 flex gap-2 justify-between items-start group">
                       <div className="flex-1 min-w-0 space-y-2">
@@ -472,7 +530,10 @@ export function KanbanBoard() {
                   ) : (
                     <Button
                       variant="ghost"
-                      className="w-full justify-start text-muted-foreground hover:bg-primary/5 hover:text-primary transition-colors border border-dashed border-transparent hover:border-primary/20 bg-muted/20"
+                      className={cn(
+                        "w-full justify-start text-muted-foreground transition-colors border border-dashed border-transparent bg-muted/20",
+                        palette.addBtn
+                      )}
                       onClick={() => setNewTaskContent({ ...newTaskContent, [col.id]: "" })}
                     >
                       <Plus className="mr-2 h-4 w-4" />
@@ -482,7 +543,8 @@ export function KanbanBoard() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </ScrollArea>
     </div>
