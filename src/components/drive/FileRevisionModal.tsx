@@ -2,20 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Plus, Trash2, Loader2, CheckCircle2, Circle, ClipboardList, ExternalLink
+  Plus, Trash2, Loader2, CheckCircle2, Circle, ClipboardList, ExternalLink, Save
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import type { DriveFile } from "@/lib/drive-types";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +46,8 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
 
   const revisions: RevisionItem[] = allData.files?.[file.id]?.revisions ?? [];
   const doneCount = revisions.filter(r => r.done).length;
+  const progress = revisions.length > 0 ? Math.round((doneCount / revisions.length) * 100) : 0;
+  const allDone = revisions.length > 0 && doneCount === revisions.length;
 
   const fetchNotes = useCallback(async () => {
     setLoading(true);
@@ -117,139 +118,188 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
     await saveData(getUpdatedData(updated));
   };
 
+  const sortedRevisions = [
+    ...revisions.filter(r => !r.done),
+    ...revisions.filter(r => r.done),
+  ];
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-primary" />
-            Daftar Revisi
-          </DialogTitle>
-          <DialogDescription className="truncate">
-            {file.name}
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Progress bar */}
-        {revisions.length > 0 && (
-          <div className="mt-1 space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{doneCount} dari {revisions.length} revisi selesai</span>
-              <span className={cn(
-                "font-semibold",
-                doneCount === revisions.length ? "text-green-500" : "text-primary"
-              )}>
-                {Math.round((doneCount / revisions.length) * 100)}%
-              </span>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-0 gap-0">
+        {/* Header */}
+        <SheetHeader className="px-6 pt-6 pb-4 border-b bg-card/50">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <div className="p-2 rounded-xl bg-primary/10 flex-shrink-0 mt-0.5">
+                <ClipboardList className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <SheetTitle className="text-base leading-tight">Daftar Revisi Dosen</SheetTitle>
+                <SheetDescription className="truncate text-xs mt-1">
+                  {file.name}
+                </SheetDescription>
+              </div>
             </div>
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-500",
-                  doneCount === revisions.length ? "bg-green-500" : "bg-primary"
-                )}
-                style={{ width: `${(doneCount / revisions.length) * 100}%` }}
-              />
-            </div>
+            {file.webViewLink && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 flex-shrink-0 text-xs"
+                onClick={() => window.open(file.webViewLink, "_blank", "noopener,noreferrer")}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Buka
+              </Button>
+            )}
           </div>
-        )}
 
-        {/* Revision list */}
-        <ScrollArea className="flex-1 -mx-1 px-1 mt-3">
-          {loading ? (
-            <div className="flex items-center justify-center p-10">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : revisions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-center">
-              <ClipboardList className="h-10 w-10 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground font-medium">Belum ada catatan revisi</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">Tambahkan poin revisi dari dosen di bawah</p>
-            </div>
-          ) : (
-            <div className="space-y-2 pb-2">
-              {/* Show undone first, done at bottom */}
-              {[...revisions.filter(r => !r.done), ...revisions.filter(r => r.done)].map((item) => (
+          {/* Progress */}
+          {revisions.length > 0 && (
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  {doneCount} dari {revisions.length} revisi selesai
+                </span>
+                <span className={cn(
+                  "font-bold tabular-nums",
+                  allDone ? "text-green-500" : "text-primary"
+                )}>
+                  {progress}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
-                  key={item.id}
                   className={cn(
-                    "flex items-start gap-3 p-3 rounded-xl border transition-all group",
-                    item.done
-                      ? "bg-muted/30 border-muted opacity-60"
-                      : "bg-card border-border hover:border-primary/30 hover:bg-primary/5"
+                    "h-full rounded-full transition-all duration-500",
+                    allDone ? "bg-green-500" : "bg-primary"
                   )}
-                >
-                  <button
-                    onClick={() => handleToggle(item.id)}
-                    disabled={saving}
-                    className="mt-0.5 flex-shrink-0 transition-colors"
-                    aria-label="Toggle selesai"
-                  >
-                    {item.done ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <p className={cn(
-                      "text-sm leading-snug break-words",
-                      item.done && "line-through text-muted-foreground"
-                    )}>
-                      {item.text}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground/60 mt-1">Ditambahkan {item.createdAt}</p>
-                  </div>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    disabled={saving}
-                    className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive mt-0.5"
-                    aria-label="Hapus item"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              {allDone && (
+                <p className="text-xs text-green-500 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Semua revisi sudah diselesaikan! 🎉
+                </p>
+              )}
             </div>
           )}
+        </SheetHeader>
+
+        {/* Revision List */}
+        <ScrollArea className="flex-1">
+          <div className="px-4 py-4">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+                <p className="text-sm text-muted-foreground">Memuat dari Drive...</p>
+              </div>
+            ) : revisions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center">
+                  <ClipboardList className="h-8 w-8 text-muted-foreground/30" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Belum ada revisi</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">
+                    Tambahkan poin revisi dari dosen di bawah
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {sortedRevisions.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "group flex items-start gap-3 p-3.5 rounded-xl border transition-all",
+                      item.done
+                        ? "bg-muted/20 border-muted/50 opacity-55"
+                        : "bg-card hover:border-primary/30 hover:bg-primary/5 border-border shadow-sm"
+                    )}
+                  >
+                    {/* Number + Checkbox */}
+                    <div className="flex items-center gap-2 mt-0.5 flex-shrink-0">
+                      {!item.done && (
+                        <span className="text-[10px] font-bold text-muted-foreground/50 w-4 text-center">
+                          {revisions.filter(r => !r.done).indexOf(item) + 1}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleToggle(item.id)}
+                        disabled={saving}
+                        className="transition-colors"
+                        aria-label="Toggle selesai"
+                      >
+                        {item.done ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <Circle className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        "text-sm leading-snug break-words",
+                        item.done && "line-through text-muted-foreground"
+                      )}>
+                        {item.text}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/50 mt-1">
+                        {item.done ? "✓ Selesai · " : ""}{item.createdAt}
+                      </p>
+                    </div>
+
+                    {/* Delete */}
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      disabled={saving}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground/40 hover:text-destructive mt-0.5 flex-shrink-0"
+                      aria-label="Hapus"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </ScrollArea>
 
-        {/* Add new item */}
-        <div className="mt-3 flex gap-2">
-          <Input
-            placeholder="Tulis poin revisi dari dosen..."
-            value={newItemText}
-            onChange={(e) => setNewItemText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-            disabled={saving || loading}
-            className="flex-1"
-          />
-          <Button
-            onClick={handleAdd}
-            disabled={!newItemText.trim() || saving || loading}
-            size="icon"
-            className="flex-shrink-0"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          </Button>
-        </div>
-
-        <DialogFooter className="mt-3 flex-col sm:flex-row gap-2">
-          {file.webViewLink && (
-            <Button
-              variant="outline"
-              className="gap-2 w-full sm:w-auto"
-              onClick={() => window.open(file.webViewLink, "_blank", "noopener,noreferrer")}
-            >
-              <ExternalLink className="h-4 w-4" />
-              Buka Dokumen
-            </Button>
+        {/* Add new item - sticky bottom */}
+        <div className="px-4 py-4 border-t bg-card/50 space-y-3">
+          {saving && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Save className="h-3 w-3 animate-pulse" />
+              Menyimpan ke Drive...
+            </div>
           )}
-          <Button onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
-            Tutup
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Tulis poin revisi dari dosen..."
+              value={newItemText}
+              onChange={(e) => setNewItemText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+              disabled={saving || loading}
+              className="flex-1 text-sm"
+            />
+            <Button
+              onClick={handleAdd}
+              disabled={!newItemText.trim() || saving || loading}
+              size="icon"
+              className="flex-shrink-0"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
