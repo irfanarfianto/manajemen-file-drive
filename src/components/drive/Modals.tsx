@@ -571,3 +571,98 @@ export function RevisionsModal({
     </Dialog>
   );
 }
+
+export function QuickNoteModal({
+  open,
+  onOpenChange,
+  currentFolder,
+  onCreated,
+}: BaseModalProps & { currentFolder: string; onCreated: () => void }) {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Reset state when opened
+  useEffect(() => {
+    if (open) {
+      setTitle("");
+      setContent("");
+      setLoading(false);
+    }
+  }, [open]);
+
+  const handleSave = async () => {
+    if (!content.trim()) return;
+    setLoading(true);
+    const t = toast.loading("Menyimpan catatan...");
+    
+    try {
+      // Buat file teks dari isi catatan
+      const fileName = (title.trim() || `Catatan_${new Date().toISOString().slice(0, 10)}`) + ".txt";
+      const blob = new Blob([content], { type: "text/plain" });
+      const file = new File([blob], fileName, { type: "text/plain" });
+      
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("parentId", currentFolder);
+
+      const res = await fetch("/api/drive/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Gagal menyimpan catatan");
+
+      toast.success("Catatan berhasil disimpan", { id: t });
+      onCreated();
+      onOpenChange(false);
+    } catch (err) {
+      toast.error((err as Error).message, { id: t });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Catatan Kilat</DialogTitle>
+          <DialogDescription>
+            Tulis catatan ini lalu simpan ke Drive Anda tanpa membuka file baru.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Input
+              placeholder="Judul Catatan (Opsional)"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={loading}
+              className="font-medium"
+            />
+          </div>
+          <div className="space-y-2">
+            <textarea
+              placeholder="Tulis apapun di sini... Hasil diskusi, ide mendadak, dll."
+              className="flex min-h-[180px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              disabled={loading}
+              autoFocus
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            Batal
+          </Button>
+          <Button onClick={handleSave} disabled={loading || !content.trim()}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Simpan Catatan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
