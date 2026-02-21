@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { 
   AlertCircle, 
   Loader2,
@@ -53,6 +53,21 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const error = searchParams.get("error");
+
+  // Reset loading state when component mounts or is restored from BFCache (back button)
+  useEffect(() => {
+    setLoading(false);
+    
+    // Handle cases where the browser restores the page from cache without re-mounting
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setLoading(false);
+      }
+    };
+    
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
