@@ -198,6 +198,7 @@ function DashboardInner() {
       fileName: file.name,
       mimeType: file.mimeType,
       fileSize: file.size || "0",
+      modifiedTime: file.modifiedTime || "",
       webViewLink: file.webViewLink || "",
       tags: tags.join(","),
     });

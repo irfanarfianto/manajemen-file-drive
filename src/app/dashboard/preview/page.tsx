@@ -269,8 +269,21 @@ function PreviewPageInner() {
   const mimeType = params.get("mimeType") ?? "";
   const webViewLink = params.get("webViewLink") ?? "";
   const fileSize = params.get("fileSize") ?? "0";
+  const modifiedTime = params.get("modifiedTime") ?? "";
   const tagsRaw = params.get("tags") ?? "";
   const initialTags = tagsRaw ? tagsRaw.split(",").filter(Boolean) : [];
+
+  const formatFullDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return d.toLocaleString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const isImage = mimeType.startsWith("image/");
   const isPdf = mimeType === "application/pdf";
@@ -307,13 +320,17 @@ function PreviewPageInner() {
   return (
     <div className="flex h-full flex-col bg-background overflow-hidden">
       {/* Top bar */}
-      <header className="h-14 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 flex-shrink-0 z-10">
-        <div className="flex-1 flex items-center gap-3 min-w-0">
+      <header className="h-16 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 flex-shrink-0 z-10">
+        <div className="flex-1 flex items-center gap-4 min-w-0">
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate leading-none">{fileName}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{formatFileSize(parseInt(fileSize))}</p>
+            <p className="text-sm font-bold truncate leading-none mb-1.5">{fileName}</p>
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
+              <span>{formatFileSize(parseInt(fileSize))}</span>
+              <span className="w-1 h-1 rounded-full bg-border" />
+              <span>Diperbarui {formatFullDate(modifiedTime)}</span>
+            </div>
           </div>
-          <div className="hidden md:flex">
+          <div className="hidden lg:flex">
             <TagEditor fileId={fileId} initialTags={initialTags} />
           </div>
         </div>

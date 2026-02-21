@@ -27,6 +27,8 @@ interface DriveNode {
   id: string;
   name: string;
   mimeType: string;
+  size?: string;
+  modifiedTime?: string;
 }
 
 interface SidebarProps {
@@ -124,6 +126,8 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
               fileId: folder.id,
               fileName: folder.name,
               mimeType: folder.mimeType,
+              fileSize: folder.size || "0",
+              modifiedTime: folder.modifiedTime || "",
             });
             window.location.href = `/dashboard/preview?${params.toString()}`;
           }
