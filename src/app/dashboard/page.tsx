@@ -14,6 +14,7 @@ import {
 import { Sidebar } from "@/components/drive/Sidebar";
 import { FileGrid } from "@/components/drive/FileGrid";
 import { KanbanBoard } from "@/components/drive/KanbanBoard";
+import { FileRevisionModal } from "@/components/drive/FileRevisionModal";
 import { toast } from "sonner";
 import { 
   NewFolderModal, 
@@ -50,6 +51,7 @@ export default function DashboardPage() {
     | { type: "delete"; files: DriveFile[] }
     | { type: "preview"; file: DriveFile }
     | { type: "revisions"; file: DriveFile }
+    | { type: "file-revisions"; file: DriveFile }
     | null
   >(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -181,6 +183,9 @@ export default function DashboardPage() {
         break;
       case "revisions":
         setActiveModal({ type: "revisions", file });
+        break;
+      case "file-revisions":
+        setActiveModal({ type: "file-revisions", file });
         break;
     }
   };
@@ -470,6 +475,13 @@ export default function DashboardPage() {
         currentFolder={currentFolder === "kanban" ? "root" : currentFolder}
         onCreated={refetch}
       />
+      {activeModal?.type === "file-revisions" && (
+        <FileRevisionModal
+          open={true}
+          onOpenChange={(open) => !open && setActiveModal(null)}
+          file={activeModal.file}
+        />
+      )}
     </div>
   );
 }

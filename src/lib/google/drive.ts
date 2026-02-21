@@ -335,3 +335,52 @@ export async function saveKanbanData(accessToken: string, data: any) {
     });
   }
 }
+
+// =============================================
+// FILE REVISION NOTES (Per-File Checklist)
+// =============================================
+export const FILE_NOTES_NAME = "DriveManager_FileNotes.json";
+
+export async function getFileNotes(accessToken: string) {
+  const drive = getDriveClient(accessToken);
+  const response = await drive.files.list({
+    q: `name = '${FILE_NOTES_NAME}' and trashed = false`,
+    fields: "files(id)",
+  });
+
+  const files = response.data.files;
+  if (!files || files.length === 0) {
+    return { files: {} };
+  }
+
+  const fileId = files[0].id!;
+  const fileRes = await drive.files.get({ fileId, alt: "media" }, { responseType: "text" });
+  return typeof fileRes.data === "string" ? JSON.parse(fileRes.data) : fileRes.data;
+}
+
+export async function saveFileNotes(accessToken: string, data: any) {
+  const drive = getDriveClient(accessToken);
+  const response = await drive.files.list({
+    q: `name = '${FILE_NOTES_NAME}' and trashed = false`,
+    fields: "files(id)",
+  });
+
+  const files = response.data.files;
+  const media = {
+    mimeType: "application/json",
+    body: JSON.stringify(data),
+  };
+
+  if (!files || files.length === 0) {
+    await drive.files.create({
+      requestBody: { name: FILE_NOTES_NAME, parents: ["root"] },
+      media: media,
+      fields: "id",
+    });
+  } else {
+    await drive.files.update({
+      fileId: files[0].id!,
+      media: media,
+    });
+  }
+}
