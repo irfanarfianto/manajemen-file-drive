@@ -105,7 +105,7 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
       <div className="px-5 pt-5 pb-4 border-b bg-card/60 backdrop-blur-md flex-shrink-0">
         <div className="flex items-center gap-2 mb-1">
           <ClipboardList className="h-4 w-4 text-primary flex-shrink-0" />
-          <h3 className="font-bold text-sm">Daftar Revisi Dosen</h3>
+          <h3 className="font-bold text-sm">Daftar Revisi</h3>
           {saving && <Save className="h-3.5 w-3.5 text-muted-foreground animate-pulse ml-auto" />}
         </div>
         <p className="text-[11px] text-muted-foreground truncate">{fileName}</p>
@@ -302,6 +302,13 @@ function PreviewPageInner() {
   const canPreviewInFrame = isPdf || isGoogleDoc || isOfficeDoc || mimeType.startsWith("text/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/");
   const previewUrl = `/api/drive/preview?fileId=${fileId}`;
 
+  const [previewLoading, setPreviewLoading] = useState(true);
+
+  // Reset loading when file changes
+  useEffect(() => {
+    setPreviewLoading(true);
+  }, [fileId]);
+
   const handleDownload = async () => {
     const t = toast.loading("Menyiapkan download...");
     try {
@@ -350,7 +357,14 @@ function PreviewPageInner() {
       {/* Body: preview (left) + revision panel (right) */}
       <div className="flex flex-1 min-h-0">
         {/* Left: file preview */}
-        <div className="flex-1 bg-muted/20 overflow-auto flex items-center justify-center p-4">
+        <div className="flex-1 bg-muted/20 overflow-auto flex items-center justify-center p-4 relative">
+          {previewLoading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-background/50 backdrop-blur-[2px]">
+              <Loader2 className="h-10 w-10 animate-spin text-primary/40" />
+              <p className="text-xs font-bold text-primary/60 animate-pulse tracking-wide">MENYIAPKAN PRATINJAU...</p>
+            </div>
+          )}
+
           {isImage ? (
             <Image
               src={`/api/drive/preview?fileId=${fileId}`}
@@ -358,13 +372,21 @@ function PreviewPageInner() {
               width={1200}
               height={1200}
               unoptimized
-              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+              className={cn(
+                "max-w-full max-h-full object-contain rounded-xl shadow-2xl transition-opacity duration-500",
+                previewLoading ? "opacity-0" : "opacity-100"
+              )}
+              onLoad={() => setPreviewLoading(false)}
             />
           ) : canPreviewInFrame ? (
             <iframe
               src={previewUrl}
-              className="w-full h-full rounded-xl border bg-white shadow-inner"
+              className={cn(
+                "w-full h-full rounded-xl border bg-white shadow-inner transition-opacity duration-500",
+                previewLoading ? "opacity-0" : "opacity-100"
+              )}
               title={fileName}
+              onLoad={() => setPreviewLoading(false)}
             />
           ) : (
             <div className="flex flex-col items-center text-center max-w-sm gap-4 p-10 rounded-2xl bg-card border shadow-sm">

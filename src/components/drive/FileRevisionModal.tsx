@@ -144,7 +144,7 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
                 <ClipboardList className="h-5 w-5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <SheetTitle className="text-base leading-tight">Daftar Revisi Dosen</SheetTitle>
+                <SheetTitle className="text-base leading-tight">Daftar Revisi</SheetTitle>
                 <SheetDescription className="truncate text-xs mt-1">
                   {file.name}
                 </SheetDescription>

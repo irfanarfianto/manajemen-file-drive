@@ -137,7 +137,7 @@ function FileActions({ file, folder, onAction }: FileActionsProps) {
         {!folder && (
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAction("file-revisions"); }}>
             <ClipboardList className="mr-2 h-4 w-4" />
-            <span>Daftar Revisi Dosen</span>
+            <span>Daftar Revisi</span>
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
