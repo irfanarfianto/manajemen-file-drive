@@ -23,12 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { FileIcon } from "@/components/ui/FileIcon";
 import { cn } from "@/lib/utils";
 
-interface FolderNode {
-  id: string;
-  name: string;
-}
-
-interface DriveSibling {
+interface DriveNode {
   id: string;
   name: string;
   mimeType: string;
@@ -52,7 +47,7 @@ function formatBytes(bytes: number): string {
 
 // ─── Recursive Tree Item ──────────────────────────────────────────────────
 interface SidebarTreeItemProps {
-  folder: FolderNode | DriveSibling;
+  folder: DriveNode;
   level: number;
   currentFolder: string;
   onFolderChange: (folderId: string) => void;
@@ -60,7 +55,7 @@ interface SidebarTreeItemProps {
 
 function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: SidebarTreeItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [children, setChildren] = useState<DriveSibling[]>([]);
+  const [children, setChildren] = useState<DriveNode[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
 
@@ -76,10 +71,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: Sideb
       try {
         const res = await fetch(`/api/drive/files?folderId=${folder.id}`);
         const data = await res.json();
-        const foldersOnly = (data.files || []).filter(
-          (f: any) => f.mimeType === "application/vnd.google-apps.folder"
-        );
-        setChildren(foldersOnly);
+        setChildren(data.files || []);
         setHasFetched(true);
       } catch (err) {
         console.error("Failed to fetch sub-folders:", err);
@@ -91,32 +83,58 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: Sideb
 
   return (
     <div className="space-y-0.5">
-      <button
-        onClick={() => onFolderChange(folder.id)}
+      <div 
         className={cn(
-          "group flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all relative overflow-hidden",
+          "group flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all relative overflow-hidden cursor-pointer",
           isActive 
             ? "bg-primary/10 text-primary font-semibold" 
             : "text-foreground/60 hover:bg-muted/80 hover:text-foreground"
         )}
         style={{ paddingLeft: `${level * 12 + 8}px` }}
+        onClick={() => {
+          const isFolder = folder.mimeType === "application/vnd.google-apps.folder";
+          if (isFolder) {
+            onFolderChange(folder.id);
+          } else {
+            const params = new URLSearchParams({
+              fileId: folder.id,
+              fileName: folder.name,
+              mimeType: folder.mimeType,
+            });
+            window.location.href = `/dashboard/preview?${params.toString()}`;
+          }
+        }}
       >
         <div 
-          onClick={toggleExpand}
-          className="p-1 -ml-1 rounded-sm hover:bg-primary/20 transition-colors mr-0.5 z-10"
+          onClick={(e) => {
+            const isFolder = folder.mimeType === "application/vnd.google-apps.folder";
+            if (isFolder) toggleExpand(e);
+            else e.stopPropagation();
+          }}
+          className={cn(
+            "p-1 -ml-1 rounded-sm hover:bg-primary/20 transition-colors mr-0.5 z-10",
+            folder.mimeType !== "application/vnd.google-apps.folder" && "opacity-0 pointer-events-none"
+          )}
         >
           <ChevronRight 
             className={cn(
               "h-3 w-3 transition-transform duration-200", 
-              isExpanded && "rotate-90",
-              !isExpanded && "opacity-40"
+              isExpanded && "rotate-90"
             )} 
           />
         </div>
-        <Folder className={cn("h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground/60")} />
+        
+        {folder.mimeType === "application/vnd.google-apps.folder" ? (
+          <Folder className={cn("h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground/60")} />
+        ) : (
+          <div className="h-3.5 w-3.5 shrink-0 flex items-center justify-center opacity-70">
+            <FileIcon mimeType={folder.mimeType} className="h-3 w-3" />
+          </div>
+        )}
+        
         <span className="truncate flex-1">{folder.name}</span>
         {isActive && <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-primary rounded-r-full" />}
-      </button>
+      </div>
 
       {/* Animated Height Container */}
       <div 
@@ -168,7 +186,7 @@ export function Sidebar({
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
   
-  const [rootFolders, setRootFolders] = useState<DriveSibling[]>([]);
+  const [rootFolders, setRootFolders] = useState<DriveNode[]>([]);
   const [rootLoading, setRootLoading] = useState(false);
 
   useEffect(() => {
@@ -177,7 +195,7 @@ export function Sidebar({
       try {
         const res = await fetch(`/api/drive/files?folderId=root`);
         const data = await res.json();
-        setRootFolders((data.files || []).filter((f: any) => f.mimeType === "application/vnd.google-apps.folder"));
+        setRootFolders(data.files || []);
       } catch (err) {
         console.error("Failed to fetch root folders:", err);
       } finally {
