@@ -347,6 +347,19 @@ export function Sidebar({
               <span className="font-medium">{item.label}</span>
             </Button>
           ))}
+
+          {/* Template Skripsi moved here */}
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 px-3 transition-all hover:bg-primary/5 hover:text-primary group"
+            onClick={onThesisTemplate}
+            id="sidebar-skripsi-template-btn"
+          >
+            <span className="p-1 rounded-md text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 transition-colors">
+              <GraduationCap className="h-4 w-4" />
+            </span>
+            <span className="font-medium">Template Skripsi</span>
+          </Button>
         </nav>
 
         {/* Real Tree View with Expand/Collapse */}
@@ -373,23 +386,6 @@ export function Sidebar({
               ))
             )}
           </div>
-        </div>
-
-        <div className="mb-2 px-3">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-            Alat Mahasiswa
-          </p>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 px-3 text-sm hover:bg-primary/5 hover:text-primary transition-colors group"
-            onClick={onThesisTemplate}
-            id="sidebar-skripsi-template-btn"
-          >
-            <span className="p-1 rounded-md text-muted-foreground group-hover:text-primary group-hover:bg-primary/10">
-              <GraduationCap className="h-4 w-4" />
-            </span>
-            <span className="font-medium">Template Skripsi</span>
-          </Button>
         </div>
       </ScrollArea>
 
