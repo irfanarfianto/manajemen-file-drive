@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { FileIcon } from "@/components/ui/FileIcon";
 import { cn } from "@/lib/utils";
@@ -112,7 +112,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
     <div className="space-y-0.5" ref={isActive ? itemRef : null}>
       <div 
         className={cn(
-          "group flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all relative overflow-hidden cursor-pointer",
+          "group flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all relative cursor-pointer",
           isActive 
             ? "bg-primary/10 text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(var(--primary),0.1)]" 
             : "text-foreground/60 hover:bg-muted/80 hover:text-foreground"
@@ -159,7 +159,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
           </div>
         )}
         
-        <span className="truncate flex-1">{folder.name}</span>
+        <span className="whitespace-nowrap overflow-x-auto no-scrollbar flex-1 pr-2">{folder.name}</span>
         {isActive && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-full shadow-[0_0_10px_rgba(var(--primary),0.5)]" />}
       </div>
 
@@ -330,7 +330,8 @@ export function Sidebar({
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 no-scrollbar">
-        <nav className="space-y-1 mb-6" aria-label="Drive navigation">
+        <div className="min-w-full w-max pr-4">
+          <nav className="space-y-1 mb-6" aria-label="Drive navigation">
           {navItems.map((item) => (
             <Button
               key={item.id}
@@ -391,6 +392,8 @@ export function Sidebar({
             )}
           </div>
         </div>
+        </div>
+        <ScrollBar orientation="horizontal" className="h-1.5" />
       </ScrollArea>
 
       {/* Storage & User */}
