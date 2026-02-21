@@ -265,3 +265,18 @@ export async function batchDeleteFiles(
     )
   );
 }
+
+// =============================================
+// GET FILE REVISIONS
+// =============================================
+export async function getRevisions(
+  accessToken: string,
+  fileId: string
+): Promise<any[]> {
+  const drive = getDriveClient(accessToken);
+  const response = await drive.revisions.list({
+    fileId,
+    fields: "revisions(id,modifiedTime,originalFilename,size,lastModifyingUser,published)",
+  });
+  return response.data.revisions || [];
+}

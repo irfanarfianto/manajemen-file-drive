@@ -18,7 +18,8 @@ import {
   NewFolderModal, 
   RenameModal, 
   DeleteModal,
-  PreviewModal
+  PreviewModal,
+  RevisionsModal
 } from "@/components/drive/Modals";
 import { useDriveFiles, useDriveQuota, useDriveSearch } from "@/hooks/useDrive";
 import type { DriveFile } from "@/lib/drive-types";
@@ -45,6 +46,7 @@ export default function DashboardPage() {
     | { type: "rename"; file: DriveFile }
     | { type: "delete"; files: DriveFile[] }
     | { type: "preview"; file: DriveFile }
+    | { type: "revisions"; file: DriveFile }
     | null
   >(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -171,6 +173,9 @@ export default function DashboardPage() {
         break;
       case "delete":
         setActiveModal({ type: "delete", files: [file] });
+        break;
+      case "revisions":
+        setActiveModal({ type: "revisions", file });
         break;
     }
   };
@@ -439,6 +444,13 @@ export default function DashboardPage() {
           file={activeModal.file}
           onDownload={handleDownload}
           onTagsUpdated={refetch}
+        />
+      )}
+      {activeModal?.type === "revisions" && (
+        <RevisionsModal
+          open={true}
+          onOpenChange={(open) => !open && setActiveModal(null)}
+          file={activeModal.file}
         />
       )}
     </div>

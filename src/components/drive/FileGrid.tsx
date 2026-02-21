@@ -8,6 +8,7 @@ import {
   Folder,
   Edit2,
   Trash2,
+  History,
 } from "lucide-react";
 import { FileIcon } from "@/components/ui/FileIcon";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,7 +39,7 @@ interface FileGridProps {
   onToggleSelect: (id: string) => void;
   onToggleAll: () => void;
   onFolderOpen: (id: string, name: string) => void;
-  onFileAction: (file: DriveFile, action: "delete" | "rename" | "open" | "download" | "preview") => void;
+  onFileAction: (file: DriveFile, action: "delete" | "rename" | "open" | "download" | "preview" | "revisions") => void;
 }
 
 function SkeletonCard({ mode }: { mode: "grid" | "list" }) {
@@ -87,7 +88,7 @@ function extractTags(properties?: Record<string, string>): string[] {
 interface FileActionsProps {
   file: DriveFile;
   folder: boolean;
-  onAction: (action: "delete" | "rename" | "open" | "download" | "preview") => void;
+  onAction: (action: "delete" | "rename" | "open" | "download" | "preview" | "revisions") => void;
 }
 
 function FileActions({ file, folder, onAction }: FileActionsProps) {
@@ -126,6 +127,12 @@ function FileActions({ file, folder, onAction }: FileActionsProps) {
           <Edit2 className="mr-2 h-4 w-4" />
           <span>Ganti Nama</span>
         </DropdownMenuItem>
+        {!folder && (
+          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onAction("revisions"); }}>
+            <History className="mr-2 h-4 w-4" />
+            <span>Riwayat Versi</span>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem 
           onClick={(e) => { e.stopPropagation(); onAction("delete"); }}
