@@ -494,12 +494,21 @@ export function PreviewModal({
   );
 }
 
+interface DriveRevision {
+  id: string;
+  modifiedTime: string;
+  size?: string;
+  lastModifyingUser?: {
+    displayName?: string;
+  };
+}
+
 export function RevisionsModal({
   open,
   onOpenChange,
   file,
 }: BaseModalProps & { file: DriveFile }) {
-  const [revisions, setRevisions] = useState<any[]>([]);
+  const [revisions, setRevisions] = useState<DriveRevision[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

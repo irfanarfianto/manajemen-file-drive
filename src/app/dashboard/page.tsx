@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense } from "react";
+import { useState, useCallback, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
   Search, 
@@ -96,6 +96,27 @@ function DashboardInner() {
       setCurrentFolder(target.id);
     }
   };
+
+  // Fetch breadcrumbs whenever current folder changes (e.g. from sidebar or direct link)
+  useEffect(() => {
+    if (currentFolder === "root" || currentFolder === "kanban") {
+      setBreadcrumbs([]);
+      return;
+    }
+
+    const fetchPath = async () => {
+      try {
+        const res = await fetch(`/api/drive/file-path?fileId=${currentFolder}`);
+        const data = await res.json();
+        if (data.folderPath) {
+          setBreadcrumbs(data.folderPath);
+        }
+      } catch (err) {
+        console.error("Failed to fetch path for breadcrumbs:", err);
+      }
+    };
+    fetchPath();
+  }, [currentFolder]);
 
   const handleThesisTemplate = () => {
     setActiveModal({ type: "thesisTemplate" });
@@ -254,7 +275,7 @@ function DashboardInner() {
       <div className="hidden md:flex">
         <Sidebar
           currentFolder={currentFolder}
-          onFolderChange={(id) => { setCurrentFolder(id); setBreadcrumbs([]); }}
+          onFolderChange={(id) => setCurrentFolder(id)}
           quota={quota}
           onNewFolder={() => setActiveModal({ type: "newFolder" })}
           onUpload={() => document.getElementById("file-upload-input")?.click()}
@@ -279,7 +300,7 @@ function DashboardInner() {
                 <SheetTitle className="sr-only">Menu Navigasi</SheetTitle>
                 <Sidebar
                   currentFolder={currentFolder}
-                  onFolderChange={(id) => { setCurrentFolder(id); setBreadcrumbs([]); }}
+                  onFolderChange={(id) => setCurrentFolder(id)}
                   quota={quota}
                   onNewFolder={() => setActiveModal({ type: "newFolder" })}
                   onUpload={() => setActiveModal({ type: "newFolder" })} // Reuse for mobile just to hit the modal or dashboard

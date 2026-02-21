@@ -11,8 +11,8 @@ export async function GET() {
   try {
     const data = await getFileNotes(session.accessToken);
     return NextResponse.json(data);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to fetch notes" }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || "Failed to fetch notes" }, { status: 500 });
   }
 }
 
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     await saveFileNotes(session.accessToken, body);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to save notes" }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message || "Failed to save notes" }, { status: 500 });
   }
 }

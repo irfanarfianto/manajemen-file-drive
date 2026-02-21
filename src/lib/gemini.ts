@@ -33,15 +33,16 @@ export async function summarizeText(content: string | { buffer: Buffer; mimeType
 
     const response = await result.response;
     return response.text();
-  } catch (err: any) {
-    console.error("Gemini Error:", err);
+  } catch (error) {
+    console.error("Gemini Error:", error);
+    const err = error as Error & { status?: number };
     
     // Check for 429 Too Many Requests or Quota Exceeded error
     if (err?.status === 429 || err?.message?.includes("429") || err?.message?.toLowerCase().includes("quota")) {
       throw new Error("Batas limit request AI tercapai (Quota Exceeded). Silakan tunggu sekitar 1 menit lalu coba lagi.");
     }
     
-    throw new Error("Gagal mendapatkan ringkasan dari AI");
+    throw new Error(err.message || "Gagal mendapatkan ringkasan dari AI");
   }
 }
 

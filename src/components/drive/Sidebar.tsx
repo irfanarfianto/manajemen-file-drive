@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { 
   FolderPlus, 
@@ -65,7 +65,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
   const isFolder = folder.mimeType === "application/vnd.google-apps.folder";
 
   // Jalankan fetch children
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (hasFetched || loading) return;
     setLoading(true);
     try {
@@ -78,7 +78,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
     } finally {
       setLoading(false);
     }
-  };
+  }, [folder.id, hasFetched, loading]);
 
   const toggleExpand = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -97,7 +97,7 @@ function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExp
       // Tutup folder jika tidak ada di jalur aktif dan bukan folder aktif
       setIsExpanded(false);
     }
-  }, [autoExpandPath, folder.id, isFolder, isActive]);
+  }, [autoExpandPath, folder.id, isFolder, isActive, fetchData]);
 
   // Ref untuk scroll ke item aktif
   const itemRef = useRef<HTMLDivElement>(null);
@@ -255,7 +255,7 @@ export function Sidebar({
         const res = await fetch(`/api/drive/file-path?fileId=${currentFolder}`);
         const data = await res.json();
         if (data.folderPath) {
-          setAutoExpandPath(data.folderPath.map((f: any) => f.id));
+          setAutoExpandPath(data.folderPath.map((f: { id: string }) => f.id));
         }
       } catch (err) {
         console.error("Failed to fetch path:", err);

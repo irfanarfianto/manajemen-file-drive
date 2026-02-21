@@ -12,10 +12,10 @@ export async function GET() {
   try {
     const data = await getKanbanData(session.accessToken);
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to fetch Kanban data:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch Kanban data" },
+      { error: (error as Error).message || "Failed to fetch Kanban data" },
       { status: 500 }
     );
   }
@@ -31,10 +31,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     await saveKanbanData(session.accessToken, body);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to save Kanban data:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to save Kanban data" },
+      { error: (error as Error).message || "Failed to save Kanban data" },
       { status: 500 }
     );
   }

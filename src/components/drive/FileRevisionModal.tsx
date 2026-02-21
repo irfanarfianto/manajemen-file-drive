@@ -218,7 +218,7 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
               </div>
             ) : (
               <div className="space-y-2">
-                {sortedRevisions.map((item, idx) => (
+                {sortedRevisions.map((item) => (
                   <div
                     key={item.id}
                     className={cn(

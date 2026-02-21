@@ -25,10 +25,10 @@ export async function GET(
     const revisions = await getRevisions(session.accessToken, fileId);
 
     return NextResponse.json({ revisions });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to fetch file revisions:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch file revisions" },
+      { error: (error as Error).message || "Failed to fetch file revisions" },
       { status: 500 }
     );
   }

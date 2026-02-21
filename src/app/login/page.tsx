@@ -56,8 +56,6 @@ function LoginContent() {
 
   // Reset loading state when component mounts or is restored from BFCache (back button)
   useEffect(() => {
-    setLoading(false);
-    
     // Handle cases where the browser restores the page from cache without re-mounting
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) {

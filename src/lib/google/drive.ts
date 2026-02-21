@@ -272,7 +272,7 @@ export async function batchDeleteFiles(
 export async function getRevisions(
   accessToken: string,
   fileId: string
-): Promise<any[]> {
+): Promise<import("googleapis").drive_v3.Schema$Revision[]> {
   const drive = getDriveClient(accessToken);
   const response = await drive.revisions.list({
     fileId,
@@ -284,7 +284,7 @@ export async function getRevisions(
 // =============================================
 // APP FOLDER — semua data app disimpan di sini
 // =============================================
-export const APP_FOLDER_NAME = "DriveManager Data";
+export const APP_FOLDER_NAME = "DriveManager Data [Jangan dihapus]";
 
 /**
  * Cari atau buat folder khusus aplikasi di root Drive.
@@ -319,11 +319,11 @@ export async function getOrCreateAppFolder(accessToken: string): Promise<string>
 // ──────────────────────────────────────────────
 // Helper: baca file JSON dari app folder
 // ──────────────────────────────────────────────
-async function readAppJson(
+async function readAppJson<T>(
   accessToken: string,
   fileName: string,
-  defaultValue: any
-): Promise<any> {
+  defaultValue: T
+): Promise<T> {
   const drive = getDriveClient(accessToken);
   const folderId = await getOrCreateAppFolder(accessToken);
 
@@ -339,16 +339,16 @@ async function readAppJson(
     { fileId: files[0].id!, alt: "media" },
     { responseType: "text" }
   );
-  return typeof fileRes.data === "string" ? JSON.parse(fileRes.data) : fileRes.data;
+  return (typeof fileRes.data === "string" ? JSON.parse(fileRes.data) : fileRes.data) as T;
 }
 
 // ──────────────────────────────────────────────
 // Helper: simpan file JSON ke app folder
 // ──────────────────────────────────────────────
-async function writeAppJson(
+async function writeAppJson<T>(
   accessToken: string,
   fileName: string,
-  data: any
+  data: T
 ): Promise<void> {
   const drive = getDriveClient(accessToken);
   const folderId = await getOrCreateAppFolder(accessToken);
@@ -387,7 +387,7 @@ export async function getKanbanData(accessToken: string) {
   });
 }
 
-export async function saveKanbanData(accessToken: string, data: any) {
+export async function saveKanbanData(accessToken: string, data: unknown) {
   return writeAppJson(accessToken, KANBAN_FILE_NAME, data);
 }
 
@@ -400,7 +400,7 @@ export async function getFileNotes(accessToken: string) {
   return readAppJson(accessToken, FILE_NOTES_NAME, { files: {} });
 }
 
-export async function saveFileNotes(accessToken: string, data: any) {
+export async function saveFileNotes(accessToken: string, data: unknown) {
   return writeAppJson(accessToken, FILE_NOTES_NAME, data);
 }
 

@@ -1,18 +1,29 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   Download, ExternalLink, Loader2,
   CheckCircle2, Circle, ClipboardList, Plus, Trash2, Save,
-  FileText, Tag, X as CloseIcon,
+  FileText, Menu,
+  ZoomIn, ZoomOut, RotateCcw
 } from "lucide-react";
+import { Sidebar } from "@/components/drive/Sidebar";
+import { useDriveQuota } from "@/hooks/useDrive";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetTrigger,
+  SheetDescription
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/lib/drive-types";
 
@@ -54,6 +65,7 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
       setAllData(await res.json());
     } catch (err) {
       toast.error((err as Error).message);
+      // Handle cases where the browser restores the page from cache without re-mounting
     } finally {
       setLoading(false);
     }
@@ -209,60 +221,11 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
   );
 }
 
-// ─── Tag editor (inline in header) ────────────────────────────────────────
-function TagEditor({ fileId, initialTags }: { fileId: string; initialTags: string[] }) {
-  const [tags, setTags] = useState(initialTags);
-  const [newTag, setNewTag] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const saveTags = async (next: string[]) => {
-    setBusy(true);
-    try {
-      const res = await fetch("/api/drive/tags", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId, tags: next }),
-      });
-      if (!res.ok) throw new Error("Gagal");
-      setTags(next);
-    } catch { toast.error("Gagal menyimpan tag"); }
-    finally { setBusy(false); }
-  };
-
-  return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      {tags.map(t => (
-        <Badge key={t} variant="secondary" className="gap-1 px-2 py-0.5 text-[10px] bg-primary/10 text-primary border-primary/20">
-          {t}
-          <button onClick={() => saveTags(tags.filter(x => x !== t))} disabled={busy} className="hover:text-destructive">
-            <CloseIcon className="h-2.5 w-2.5" />
-          </button>
-        </Badge>
-      ))}
-      <div className="flex items-center bg-muted rounded-md px-2 py-0.5 h-6 gap-1">
-        <Tag className="h-3 w-3 text-muted-foreground" />
-        <input
-          type="text"
-          placeholder="Tag..."
-          className="bg-transparent text-[11px] w-16 outline-none border-none focus:ring-0 placeholder:text-muted-foreground/60"
-          value={newTag}
-          onChange={e => setNewTag(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === "Enter" && newTag.trim()) {
-              saveTags([...tags, newTag.trim()]);
-              setNewTag("");
-            }
-          }}
-          disabled={busy}
-        />
-      </div>
-    </div>
-  );
-}
-
 // ─── Main page ─────────────────────────────────────────────────────────────
 function PreviewPageInner() {
   const params = useSearchParams();
+  const router = useRouter();
+  const { quota } = useDriveQuota();
 
   const fileId = params.get("fileId") ?? "";
   const fileName = params.get("fileName") ?? "File";
@@ -270,8 +233,6 @@ function PreviewPageInner() {
   const webViewLink = params.get("webViewLink") ?? "";
   const fileSize = params.get("fileSize") ?? "0";
   const modifiedTime = params.get("modifiedTime") ?? "";
-  const tagsRaw = params.get("tags") ?? "";
-  const initialTags = tagsRaw ? tagsRaw.split(",").filter(Boolean) : [];
 
   const formatFullDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -303,11 +264,41 @@ function PreviewPageInner() {
   const previewUrl = `/api/drive/preview?fileId=${fileId}`;
 
   const [previewLoading, setPreviewLoading] = useState(true);
+  const [zoom, setZoom] = useState(0.35);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Reset loading when file changes
+  // Reset loading, zoom, and position when file changes
   useEffect(() => {
     setPreviewLoading(true);
+    setZoom(0.35);
+    setPosition({ x: 0, y: 0 });
   }, [fileId]);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.1, 3));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.1, 0.1));
+  const handleZoomReset = () => {
+    setZoom(1);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 0.35) return; // Only drag if zoomed in enough (optional)
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    });
+  };
+
+  const onMouseUp = () => setIsDragging(false);
 
   const handleDownload = async () => {
     const t = toast.loading("Menyiapkan download...");
@@ -327,18 +318,37 @@ function PreviewPageInner() {
   return (
     <div className="flex h-full flex-col bg-background overflow-hidden">
       {/* Top bar */}
-      <header className="h-16 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 flex-shrink-0 z-10">
-        <div className="flex-1 flex items-center gap-4 min-w-0">
-          <div className="min-w-0">
-            <p className="text-sm font-bold truncate leading-none mb-1.5">{fileName}</p>
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
-              <span>{formatFileSize(parseInt(fileSize))}</span>
-              <span className="w-1 h-1 rounded-full bg-border" />
-              <span>Diperbarui {formatFullDate(modifiedTime)}</span>
-            </div>
-          </div>
-          <div className="hidden lg:flex">
-            <TagEditor fileId={fileId} initialTags={initialTags} />
+      <header className="h-16 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 flex-shrink-0 z-50">
+        <div className="flex items-center gap-2">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72 border-r">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Navigasi</SheetTitle>
+                <SheetDescription>Menu utama dashboard</SheetDescription>
+              </SheetHeader>
+              <Sidebar
+                currentFolder={""}
+                onFolderChange={(id) => router.push(`/dashboard?folderId=${id}`)}
+                quota={quota ?? null}
+                onNewFolder={() => router.push("/dashboard?action=newFolder")}
+                onUpload={() => router.push("/dashboard?action=upload")}
+                onThesisTemplate={() => router.push("/dashboard?action=thesisTemplate")}
+              />
+            </SheetContent>
+          </Sheet>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold truncate leading-none mb-1">{fileName}</p>
+          <div className="hidden sm:flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
+            <span>{formatFileSize(parseInt(fileSize))}</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span>Diperbarui {formatFullDate(modifiedTime)}</span>
           </div>
         </div>
 
@@ -346,8 +356,26 @@ function PreviewPageInner() {
           <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={handleDownload}>
             <Download className="h-3.5 w-3.5" /> Download
           </Button>
+          
+          <div className="lg:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
+                  <ClipboardList className="h-3.5 w-3.5" /> Revisi
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="p-0 w-full sm:max-w-md border-l">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Daftar Revisi</SheetTitle>
+                  <SheetDescription>Kelola catatan revisi untuk file ini</SheetDescription>
+                </SheetHeader>
+                <RevisionPanel fileId={fileId} fileName={fileName} />
+              </SheetContent>
+            </Sheet>
+          </div>
+
           {webViewLink && (
-            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs" onClick={() => window.open(webViewLink, "_blank")}>
+            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs hidden sm:flex" onClick={() => window.open(webViewLink, "_blank")}>
               <ExternalLink className="h-3.5 w-3.5" /> Drive
             </Button>
           )}
@@ -357,11 +385,10 @@ function PreviewPageInner() {
       {/* Body: preview (left) + revision panel (right) */}
       <div className="flex flex-1 min-h-0">
         {/* Left: file preview */}
-        <div className="flex-1 bg-muted/20 overflow-auto flex items-center justify-center p-4 relative">
+        <div className="flex-1 bg-muted/20 relative flex flex-col">
           {previewLoading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-background/80 backdrop-blur-sm animate-in fade-in duration-500">
               <div className="flex flex-col items-center gap-5">
-                {/* Popular Concentric Ring Spinner */}
                 <div className="relative w-16 h-16">
                   <div className="absolute inset-0 border-4 border-primary/10 rounded-full"></div>
                   <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -369,56 +396,112 @@ function PreviewPageInner() {
                   <div className="absolute inset-4 border-4 border-primary/40 border-l-transparent rounded-full animate-[spin_2s_linear_infinite]"></div>
                 </div>
                 
-                <div className="flex flex-col items-center gap-1">
+                <div className="flex flex-col items-center gap-1 text-center px-4">
                   <p className="text-xs font-bold text-foreground/80 tracking-tight">Memuat Pratinjau...</p>
-                  <p className="text-[10px] text-muted-foreground animate-pulse font-medium">Mohon tunggu sebentar</p>
+                  <p className="text-[10px] text-muted-foreground animate-pulse font-medium">Ini mungkin butuh beberapa detik untuk file besar</p>
                 </div>
               </div>
             </div>
           )}
 
-          {isImage ? (
-            <Image
-              src={`/api/drive/preview?fileId=${fileId}`}
-              alt={fileName}
-              width={1200}
-              height={1200}
-              unoptimized
-              className={cn(
-                "max-w-full max-h-full object-contain rounded-xl shadow-2xl transition-opacity duration-500",
-                previewLoading ? "opacity-0" : "opacity-100"
-              )}
-              onLoad={() => setPreviewLoading(false)}
-            />
-          ) : canPreviewInFrame ? (
-            <iframe
-              src={previewUrl}
-              className={cn(
-                "w-full h-full rounded-xl border bg-white shadow-inner transition-opacity duration-500",
-                previewLoading ? "opacity-0" : "opacity-100"
-              )}
-              title={fileName}
-              onLoad={() => setPreviewLoading(false)}
-            />
-          ) : (
-            <div className="flex flex-col items-center text-center max-w-sm gap-4 p-10 rounded-2xl bg-card border shadow-sm">
-              <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center">
-                <FileText className="h-8 w-8 text-muted-foreground" />
+          <div className="flex-1 h-full w-full overflow-auto flex items-center justify-center p-2 sm:p-8 relative bg-black/5 scrollbar-thin">
+            {isImage ? (
+              <div 
+                className={cn(
+                  "flex items-center justify-center min-h-full min-w-full p-4 touch-none transition-transform duration-75",
+                  zoom > 0.35 ? "cursor-grab" : "cursor-default",
+                  isDragging && "cursor-grabbing active:scale-[0.99]"
+                )}
+                onMouseDown={onMouseDown}
+                onMouseMove={onMouseMove}
+                onMouseUp={onMouseUp}
+                onMouseLeave={onMouseUp}
+              >
+                <div 
+                   style={{ 
+                    transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                    transformOrigin: 'center center',
+                    transition: isDragging ? 'none' : 'transform 0.2s ease-out, opacity 0.5s ease-in-out'
+                  }}
+                  className="relative"
+                >
+                  <Image
+                    src={`/api/drive/preview?fileId=${fileId}`}
+                    alt={fileName}
+                    width={1400}
+                    height={1400}
+                    unoptimized
+                    draggable={false}
+                    className={cn(
+                      "max-w-full h-auto object-contain rounded-lg shadow-2xl m-auto shadow-black/20 select-none",
+                      previewLoading ? "opacity-0" : "opacity-100"
+                    )}
+                    onLoad={() => setPreviewLoading(false)}
+                  />
+                </div>
+
+                {/* Floating Zoom Slider */}
+                {!previewLoading && (
+                  <div 
+                    className="fixed bottom-6 left-1/2 -translate-x-1/2 lg:left-auto lg:right-[340px] lg:translate-x-0 flex items-center gap-4 p-3 rounded-2xl bg-card/80 backdrop-blur-md border shadow-2xl z-50 animate-in slide-in-from-bottom-4 w-[280px]"
+                    onMouseDown={(e) => e.stopPropagation()} // Prevent drag start when clicking controls
+                  >
+                    <Button variant="ghost" size="icon" onClick={handleZoomOut} disabled={zoom <= 0.1} className="h-8 w-8 rounded-lg hover:bg-primary/10 shrink-0">
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    
+                    <div className="flex-1 flex flex-col gap-1.5 pt-1">
+                      <Slider
+                        value={[zoom]}
+                        min={0.1}
+                        max={3}
+                        step={0.01}
+                        onValueChange={(val) => setZoom(val[0])}
+                      />
+                    </div>
+
+                    <Button variant="ghost" size="icon" onClick={handleZoomIn} disabled={zoom >= 3} className="h-8 w-8 rounded-lg hover:bg-primary/10 shrink-0">
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                    
+                    <div className="w-px h-6 bg-border mx-0.5" />
+                    
+                    <Button variant="ghost" size="icon" onClick={handleZoomReset} className="h-8 w-8 rounded-lg hover:bg-primary/10 shrink-0" title="Reset to 100%">
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
-              <div>
-                <h3 className="font-semibold mb-1">Pratinjau tidak tersedia</h3>
-                <p className="text-sm text-muted-foreground">Tipe file ini tidak dapat ditampilkan. Silakan download atau buka di Drive.</p>
+            ) : canPreviewInFrame ? (
+              <iframe
+                src={previewUrl}
+                className={cn(
+                  "w-full h-full rounded-xl border bg-white shadow-inner transition-opacity duration-500",
+                  previewLoading ? "opacity-0" : "opacity-100"
+                )}
+                title={fileName}
+                onLoad={() => setPreviewLoading(false)}
+              />
+            ) : (
+              <div className="flex flex-col items-center text-center max-w-sm gap-4 p-10 rounded-2xl bg-card border shadow-sm my-auto">
+                <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center">
+                  <FileText className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-1">Pratinjau tidak tersedia</h3>
+                  <p className="text-sm text-muted-foreground">Tipe file ini tidak dapat ditampilkan. Silakan download atau buka di Drive.</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleDownload}><Download className="mr-2 h-4 w-4" />Download</Button>
+                  {webViewLink && <Button size="sm" onClick={() => window.open(webViewLink, "_blank")}><ExternalLink className="mr-2 h-4 w-4" />Buka</Button>}
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handleDownload}><Download className="mr-2 h-4 w-4" />Download</Button>
-                {webViewLink && <Button size="sm" onClick={() => window.open(webViewLink, "_blank")}><ExternalLink className="mr-2 h-4 w-4" />Buka</Button>}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* Right: revision panel */}
-        <div className="w-80 border-l bg-card flex-shrink-0 flex flex-col">
+        {/* Right: revision panel (visible on large screens only) */}
+        <div className="hidden lg:flex w-80 border-l bg-card flex-shrink-0 flex flex-col">
           <RevisionPanel fileId={fileId} fileName={fileName} />
         </div>
       </div>

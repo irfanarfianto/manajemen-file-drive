@@ -11,8 +11,9 @@ function nodeStreamToWebStream(nodeStream: NodeJS.ReadableStream): ReadableStrea
       nodeStream.on("error", (err) => { controller.error(err); });
     },
     cancel() {
-      if (typeof (nodeStream as any).destroy === "function") {
-        (nodeStream as any).destroy();
+      const stream = nodeStream as unknown as { destroy?: () => void };
+      if (typeof stream.destroy === "function") {
+        stream.destroy();
       }
     },
   });

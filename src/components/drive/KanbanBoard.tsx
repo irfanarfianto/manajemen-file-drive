@@ -3,11 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Plus, MoreVertical, Trash2, ArrowRight, ArrowLeft,
-  Loader2, Save, Paperclip, X, FileText, ExternalLink, Search
+  Loader2, Save, Paperclip, X, ExternalLink, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -69,7 +68,7 @@ function FilePicker({
       if (!res.ok) throw new Error();
       const data = await res.json();
       // filter folder
-      setFiles((data.files || []).filter((f: any) => f.mimeType !== "application/vnd.google-apps.folder"));
+      setFiles((data.files || []).filter((f: DriveFilePick) => f.mimeType !== "application/vnd.google-apps.folder"));
     } catch {
       toast.error("Gagal mengambil daftar file");
     } finally {
