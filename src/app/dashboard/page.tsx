@@ -1,219 +1,37 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { 
+  Search, 
+  X, 
+  LayoutGrid, 
+  List, 
+  Home,
+  FileText
+} from "lucide-react";
 import { Sidebar } from "@/components/drive/Sidebar";
 import { FileGrid } from "@/components/drive/FileGrid";
+import { toast } from "sonner";
+import { 
+  NewFolderModal, 
+  RenameModal, 
+  DeleteModal,
+  PreviewModal
+} from "@/components/drive/Modals";
 import { useDriveFiles, useDriveQuota, useDriveSearch } from "@/hooks/useDrive";
 import type { DriveFile } from "@/lib/drive-types";
-import styles from "./dashboard.module.css";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { 
+  Breadcrumb, 
+  BreadcrumbItem, 
+  BreadcrumbLink, 
+  BreadcrumbList, 
+  BreadcrumbPage, 
+  BreadcrumbSeparator 
+} from "@/components/ui/breadcrumb";
+import { cn } from "@/lib/utils";
 
-// =============================================
-// Modals
-// =============================================
-interface ModalProps {
-  onClose: () => void;
-}
-
-function NewFolderModal({
-  onClose,
-  currentFolder,
-  onCreated,
-}: ModalProps & { currentFolder: string; onCreated: () => void }) {
-  const [name, setName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleCreate = async () => {
-    if (!name.trim()) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/drive/file", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), parentId: currentFolder }),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? "Gagal membuat folder");
-      }
-      onCreated();
-      onClose();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Folder Baru</h2>
-          <button className={styles.modalClose} onClick={onClose} aria-label="Tutup">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-        <div className={styles.modalBody}>
-          <input
-            className={styles.modalInput}
-            type="text"
-            placeholder="Nama folder..."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            autoFocus
-            id="new-folder-name-input"
-          />
-          {error && <p className={styles.modalError}>{error}</p>}
-        </div>
-        <div className={styles.modalFooter}>
-          <button className={styles.btnCancel} onClick={onClose}>Batal</button>
-          <button
-            className={styles.btnPrimary}
-            onClick={handleCreate}
-            disabled={!name.trim() || loading}
-            id="create-folder-submit"
-          >
-            {loading ? "Membuat..." : "Buat Folder"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RenameModal({
-  file,
-  onClose,
-  onRenamed,
-}: ModalProps & { file: DriveFile; onRenamed: () => void }) {
-  const [name, setName] = useState(file.name);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleRename = async () => {
-    if (!name.trim() || name === file.name) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/drive/file", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: file.id, name: name.trim() }),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? "Gagal rename");
-      }
-      onRenamed();
-      onClose();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Rename</h2>
-          <button className={styles.modalClose} onClick={onClose} aria-label="Tutup">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-        <div className={styles.modalBody}>
-          <input
-            className={styles.modalInput}
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleRename()}
-            autoFocus
-            id="rename-input"
-          />
-          {error && <p className={styles.modalError}>{error}</p>}
-        </div>
-        <div className={styles.modalFooter}>
-          <button className={styles.btnCancel} onClick={onClose}>Batal</button>
-          <button
-            className={styles.btnPrimary}
-            onClick={handleRename}
-            disabled={!name.trim() || name === file.name || loading}
-            id="rename-submit"
-          >
-            {loading ? "Menyimpan..." : "Simpan"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DeleteModal({
-  file,
-  onClose,
-  onDeleted,
-}: ModalProps & { file: DriveFile; onDeleted: () => void }) {
-  const [loading, setLoading] = useState(false);
-
-  const handleDelete = async () => {
-    setLoading(true);
-    try {
-      await fetch("/api/drive/file", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileId: file.id }),
-      });
-      onDeleted();
-      onClose();
-    } catch {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className={styles.modalOverlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Hapus ke Trash</h2>
-          <button className={styles.modalClose} onClick={onClose} aria-label="Tutup">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-        <div className={styles.modalBody}>
-          <p className={styles.deleteText}>
-            Yakin ingin memindahkan <strong>&ldquo;{file.name}&rdquo;</strong> ke Trash?
-          </p>
-        </div>
-        <div className={styles.modalFooter}>
-          <button className={styles.btnCancel} onClick={onClose}>Batal</button>
-          <button
-            className={styles.btnDanger}
-            onClick={handleDelete}
-            disabled={loading}
-            id="delete-confirm"
-          >
-            {loading ? "Menghapus..." : "Hapus"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// =============================================
-// Main Dashboard
-// =============================================
 export default function DashboardPage() {
   const [currentFolder, setCurrentFolder] = useState("root");
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
@@ -223,14 +41,18 @@ export default function DashboardPage() {
     | { type: "newFolder" }
     | { type: "rename"; file: DriveFile }
     | { type: "delete"; file: DriveFile }
+    | { type: "preview"; file: DriveFile }
     | null
   >(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
+
 
   const { files, loading, error, refetch } = useDriveFiles({
     folderId: currentFolder,
     enabled: !searchQuery,
   });
-  const { quota } = useDriveQuota();
+  const { quota, refetch: refetchQuota } = useDriveQuota();
   const { results: searchResults, loading: searchLoading } = useDriveSearch(searchQuery);
 
   const displayFiles = searchQuery ? searchResults : files;
@@ -252,119 +74,229 @@ export default function DashboardPage() {
     }
   };
 
-  const handleFileAction = (file: DriveFile, action: "delete" | "rename" | "open") => {
-    if (action === "delete") setActiveModal({ type: "delete", file });
-    if (action === "rename") setActiveModal({ type: "rename", file });
-    if (action === "open" && file.webViewLink) {
-      window.open(file.webViewLink, "_blank");
+  const handleThesisTemplate = async () => {
+    const title = window.prompt("Masukkan nama folder skripsi:", `Skripsi ${new Date().getFullYear()}`);
+    if (!title) return;
+
+    setIsCreatingTemplate(true);
+    const t = toast.loading("Membuat struktur skripsi...");
+    
+    try {
+      const res = await fetch("/api/drive/template/skripsi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, parentId: currentFolder }),
+      });
+
+      if (!res.ok) throw new Error("Gagal membuat template");
+
+      toast.success("Struktur skripsi berhasil dibuat!", { id: t });
+      refetch();
+    } catch (err) {
+      toast.error((err as Error).message, { id: t });
+    } finally {
+      setIsCreatingTemplate(false);
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    setIsUploading(true);
+    const t = toast.loading(`Mengunggah ${selectedFiles.length} file...`);
+
+    try {
+      for (const file of Array.from(selectedFiles)) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("parentId", currentFolder);
+
+        const res = await fetch("/api/drive/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) throw new Error(`Gagal mengunggah ${file.name}`);
+      }
+
+      toast.success("Semua file berhasil diunggah", { id: t });
+      refetch();
+      refetchQuota();
+    } catch (err) {
+      toast.error((err as Error).message, { id: t });
+    } finally {
+      setIsUploading(false);
+      if (e.target) e.target.value = "";
+    }
+  };
+
+  const handleDownload = async (file: DriveFile) => {
+    const t = toast.loading(`Menyiapkan download ${file.name}...`);
+    try {
+      const res = await fetch(`/api/drive/download?fileId=${file.id}`);
+      if (!res.ok) throw new Error("Download gagal");
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Download dimulai", { id: t });
+    } catch (err) {
+      toast.error((err as Error).message, { id: t });
+    }
+  };
+
+  const handleFileAction = (file: DriveFile, action: string) => {
+    switch (action) {
+      case "open":
+        if (file.mimeType === "application/vnd.google-apps.folder") {
+          setCurrentFolder(file.id);
+        } else {
+          setActiveModal({ type: "preview", file });
+        }
+        break;
+      case "preview":
+        setActiveModal({ type: "preview", file });
+        break;
+      case "download":
+        handleDownload(file);
+        break;
+      case "rename":
+        setActiveModal({ type: "rename", file });
+        break;
+      case "delete":
+        setActiveModal({ type: "delete", file });
+        break;
+    }
+  };
+
+
   return (
-    <div className={styles.shell}>
+    <div className="flex h-screen bg-background overflow-hidden">
       <Sidebar
         currentFolder={currentFolder}
         onFolderChange={(id) => { setCurrentFolder(id); setBreadcrumbs([]); }}
         quota={quota}
         onNewFolder={() => setActiveModal({ type: "newFolder" })}
         onUpload={() => document.getElementById("file-upload-input")?.click()}
+        onThesisTemplate={handleThesisTemplate}
       />
 
-      <main className={styles.main}>
+      <main className="flex-1 flex flex-col min-w-0">
         {/* Header Bar */}
-        <header className={styles.header}>
+        <header className="h-16 border-b bg-card/50 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-6 gap-4">
           {/* Search */}
-          <div className={styles.searchWrapper}>
-            <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              className={styles.searchInput}
-              type="search"
+          <div className="flex-1 max-w-2xl relative group">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <Input
+              className="pl-10 h-10 w-full bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-primary/40 rounded-xl"
               placeholder="Cari file atau folder..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               id="search-input"
-              aria-label="Cari file"
             />
             {searchQuery && (
-              <button className={styles.searchClear} onClick={() => setSearchQuery("")} aria-label="Hapus pencarian">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             )}
           </div>
 
           {/* View toggle */}
-          <div className={styles.viewToggle} role="group" aria-label="View mode">
-            <button
-              className={`${styles.viewBtn} ${viewMode === "grid" ? styles.viewBtnActive : ""}`}
+          <div className="flex items-center bg-muted/40 p-1 rounded-xl">
+            <Button
+              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              size="sm"
+              className={cn(
+                "h-8 px-3 rounded-lg shadow-none",
+                viewMode === "grid" ? "bg-card shadow-sm" : "hover:bg-muted"
+              )}
               onClick={() => setViewMode("grid")}
-              aria-pressed={viewMode === "grid"}
-              title="Grid view"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-              </svg>
-            </button>
-            <button
-              className={`${styles.viewBtn} ${viewMode === "list" ? styles.viewBtnActive : ""}`}
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Grid
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className={cn(
+                "h-8 px-3 rounded-lg shadow-none",
+                viewMode === "list" ? "bg-card shadow-sm" : "hover:bg-muted"
+              )}
               onClick={() => setViewMode("list")}
-              aria-pressed={viewMode === "list"}
-              title="List view"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" />
-                <line x1="8" y1="18" x2="21" y2="18" />
-                <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" />
-                <line x1="3" y1="18" x2="3.01" y2="18" />
-              </svg>
-            </button>
+              <List className="h-4 w-4 mr-2" />
+              List
+            </Button>
           </div>
         </header>
 
         {/* Content Area */}
-        <div className={styles.content}>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 lg:p-10">
           {/* Breadcrumb */}
           {!searchQuery && (
-            <nav className={styles.breadcrumb} aria-label="Folder navigation">
-              <button className={styles.breadcrumbItem} onClick={() => handleBreadcrumb(-1)}>
-                My Drive
-              </button>
-              {breadcrumbs.map((crumb, i) => (
-                <>
-                  <svg key={`sep-${i}`} className={styles.breadcrumbSep} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                  <button
-                    key={crumb.id}
-                    className={`${styles.breadcrumbItem} ${i === breadcrumbs.length - 1 ? styles.breadcrumbCurrent : ""}`}
-                    onClick={() => handleBreadcrumb(i)}
+            <Breadcrumb className="mb-6">
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink 
+                    onClick={() => handleBreadcrumb(-1)}
+                    className="cursor-pointer flex items-center gap-1 hover:text-primary transition-colors"
                   >
-                    {crumb.name}
-                  </button>
-                </>
-              ))}
-            </nav>
+                    <Home className="h-3.5 w-3.5" />
+                    My Drive
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {breadcrumbs.map((crumb, i) => (
+                  <div key={crumb.id} className="flex items-center gap-2">
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      {i === breadcrumbs.length - 1 ? (
+                        <BreadcrumbPage className="font-semibold text-foreground">
+                          {crumb.name}
+                        </BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink 
+                          onClick={() => handleBreadcrumb(i)}
+                          className="cursor-pointer hover:text-primary transition-colors"
+                        >
+                          {crumb.name}
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </div>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
           )}
 
-          {/* Title */}
-          <div className={styles.titleRow}>
-            <h1 className={styles.pageTitle}>
-              {searchQuery
-                ? `Hasil pencarian "${searchQuery}"`
-                : breadcrumbs.length > 0
-                ? breadcrumbs[breadcrumbs.length - 1].name
-                : "My Drive"}
-            </h1>
-            {!isLoading && (
-              <span className={styles.fileCount}>
-                {displayFiles.length} item
-              </span>
-            )}
+          {/* Title & Count */}
+          <div className="flex items-end justify-between mb-8">
+            <div className="space-y-1">
+              <h1 className="text-3xl font-extrabold tracking-tight">
+                {searchQuery
+                  ? `Hasil pencarian "${searchQuery}"`
+                  : breadcrumbs.length > 0
+                  ? breadcrumbs[breadcrumbs.length - 1].name
+                  : "My Drive"}
+              </h1>
+              {!isLoading && (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5" />
+                  {displayFiles.length} item ditemukan
+                </p>
+              )}
+            </div>
           </div>
 
           {/* File grid */}
@@ -380,28 +312,45 @@ export default function DashboardPage() {
       </main>
 
       {/* Hidden file input for upload */}
-      <input type="file" id="file-upload-input" style={{ display: "none" }} multiple />
+      <input 
+        type="file" 
+        id="file-upload-input" 
+        className="hidden" 
+        multiple 
+        onChange={handleFileUpload}
+        disabled={isUploading}
+      />
 
       {/* Modals */}
-      {activeModal?.type === "newFolder" && (
-        <NewFolderModal
-          onClose={() => setActiveModal(null)}
-          currentFolder={currentFolder}
-          onCreated={refetch}
-        />
-      )}
+      <NewFolderModal
+        open={activeModal?.type === "newFolder"}
+        onOpenChange={(open) => !open && setActiveModal(null)}
+        currentFolder={currentFolder}
+        onCreated={refetch}
+      />
       {activeModal?.type === "rename" && (
         <RenameModal
+          open={true}
+          onOpenChange={(open) => !open && setActiveModal(null)}
           file={activeModal.file}
-          onClose={() => setActiveModal(null)}
           onRenamed={refetch}
         />
       )}
       {activeModal?.type === "delete" && (
         <DeleteModal
+          open={true}
+          onOpenChange={(open) => !open && setActiveModal(null)}
           file={activeModal.file}
-          onClose={() => setActiveModal(null)}
           onDeleted={refetch}
+        />
+      )}
+      {activeModal?.type === "preview" && (
+        <PreviewModal
+          open={true}
+          onOpenChange={(open) => !open && setActiveModal(null)}
+          file={activeModal.file}
+          onDownload={handleDownload}
+          onTagsUpdated={refetch}
         />
       )}
     </div>

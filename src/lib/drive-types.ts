@@ -6,6 +6,7 @@ export interface DriveFile {
   name: string;
   mimeType: string;
   size?: string;
+  properties?: Record<string, string>;
   modifiedTime?: string;
   createdTime?: string;
   parents?: string[];

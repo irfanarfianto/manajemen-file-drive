@@ -6,7 +6,8 @@ export type { DriveFile, DriveListOptions, DriveListResult } from "@/lib/drive-t
 export { formatFileSize, isFolder, getFileCategory } from "@/lib/drive-types";
 
 const DRIVE_FILE_FIELDS =
-  "id,name,mimeType,size,modifiedTime,createdTime,parents,webViewLink,webContentLink,starred,trashed,owners,shared,thumbnailLink";
+  "id,name,mimeType,size,modifiedTime,createdTime,parents,webViewLink,webContentLink,starred,trashed,owners,shared,thumbnailLink,properties";
+
 
 function getDriveClient(accessToken: string) {
   const auth = new google.auth.OAuth2();
@@ -184,4 +185,47 @@ export async function uploadFile(
   return response.data as DriveFile;
 }
 
-// Note: Helper functions are in @/lib/drive-types and re-exported above
+// =============================================
+// DOWNLOAD FILE (stream)
+// =============================================
+export async function downloadFile(
+  accessToken: string,
+  fileId: string
+): Promise<{ data: NodeJS.ReadableStream; mimeType: string }> {
+  const drive = getDriveClient(accessToken);
+  const file = await drive.files.get({
+    fileId,
+    fields: "mimeType",
+    supportsAllDrives: true,
+  });
+
+  const response = await drive.files.get(
+    { fileId, alt: "media", supportsAllDrives: true },
+    { responseType: "stream" }
+  );
+
+  return {
+    data: response.data as NodeJS.ReadableStream,
+    mimeType: file.data.mimeType || "application/octet-stream",
+  };
+}
+
+// =============================================
+// UPDATE PROPERTIES (TAGS)
+// =============================================
+export async function updateFileProperties(
+  accessToken: string,
+  fileId: string,
+  properties: Record<string, string | null>
+): Promise<DriveFile> {
+  const drive = getDriveClient(accessToken);
+  const response = await drive.files.update({
+    fileId,
+    requestBody: { properties: properties as any },
+    fields: DRIVE_FILE_FIELDS,
+    supportsAllDrives: true,
+  });
+  return response.data as DriveFile;
+}
+
+

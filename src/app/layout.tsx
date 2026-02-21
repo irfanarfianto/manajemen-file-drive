@@ -15,15 +15,18 @@ export const metadata: Metadata = {
     "Dashboard modern untuk membuat, mengedit, dan mengelola file Google Drive dengan tampilan yang clean dan intuitif.",
 };
 
+import { Toaster } from "@/components/ui/sonner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="id" className={inter.variable}>
+    <html lang="id" className={`${inter.variable} dark`}>
       <body>
         <AuthProvider>{children}</AuthProvider>
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );

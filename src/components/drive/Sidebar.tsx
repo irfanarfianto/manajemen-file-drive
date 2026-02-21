@@ -2,7 +2,21 @@
 
 import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-import styles from "./Sidebar.module.css";
+import { 
+  FolderPlus, 
+  Upload, 
+  HardDrive, 
+  LogOut,
+  Loader2,
+  Cloud,
+  GraduationCap
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   currentFolder: string;
@@ -10,7 +24,9 @@ interface SidebarProps {
   quota: { limit: number | null; usage: number } | null;
   onNewFolder: () => void;
   onUpload: () => void;
+  onThesisTemplate: () => void;
 }
+
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) {
@@ -25,6 +41,7 @@ export function Sidebar({
   quota,
   onNewFolder,
   onUpload,
+  onThesisTemplate,
 }: SidebarProps) {
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
@@ -43,20 +60,15 @@ export function Sidebar({
     {
       id: "root",
       label: "My Drive",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-          <polyline points="9 22 9 12 15 12 15 22" />
-        </svg>
-      ),
+      icon: <HardDrive className="h-4 w-4" />,
     },
   ];
 
   return (
-    <aside className={styles.sidebar}>
+    <aside className="w-64 border-r bg-card flex flex-col h-screen overflow-hidden">
       {/* Logo */}
-      <div className={styles.logo}>
-        <div className={styles.logoIcon}>
+      <div className="p-6 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
           <svg width="20" height="20" viewBox="0 0 87.3 78" fill="none" aria-hidden="true">
             <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L28 48.95H0c0 1.55.4 3.1 1.2 4.5l5.4 13.4z" fill="#0066DA" />
             <path d="M43.65 24.15L29.3 1.2C27.95.4 26.4 0 24.85 0c-1.55 0-3.1.4-4.45 1.2l-14.8 25.35 14.35 24.8 24.6-27.2z" fill="#00AC47" />
@@ -66,98 +78,128 @@ export function Sidebar({
             <path d="M87.3 52.95c0-1.55-.4-3.1-1.2-4.5l-14.7-25.4-14 24.2 14.15 24.55 15.75-14.85z" fill="#FFBA00" />
           </svg>
         </div>
-        <span className={styles.logoText}>Drive Manager</span>
+        <span className="font-bold text-lg tracking-tight">Drive Manager</span>
       </div>
 
-      {/* Action Buttons */}
-      <div className={styles.actions}>
-        <button className={styles.btnUpload} onClick={onUpload} id="sidebar-upload-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="17 8 12 3 7 8" />
-            <line x1="12" y1="3" x2="12" y2="15" />
-          </svg>
+      <div className="px-4 mb-4 flex flex-col gap-2">
+        <Button 
+          onClick={onUpload} 
+          className="w-full justify-start gap-2 shadow-sm"
+          id="sidebar-upload-btn"
+        >
+          <Upload className="h-4 w-4" />
           Upload File
-        </button>
-        <button className={styles.btnNewFolder} onClick={onNewFolder} id="sidebar-new-folder-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            <line x1="12" y1="11" x2="12" y2="17" />
-            <line x1="9" y1="14" x2="15" y2="14" />
-          </svg>
+        </Button>
+        <Button 
+          variant="secondary" 
+          onClick={onNewFolder} 
+          className="w-full justify-start gap-2 bg-secondary/50 hover:bg-secondary"
+          id="sidebar-new-folder-btn"
+        >
+          <FolderPlus className="h-4 w-4" />
           Folder Baru
-        </button>
+        </Button>
       </div>
+
+      <Separator className="mx-4 w-auto mb-4" />
 
       {/* Navigation */}
-      <nav className={styles.nav} aria-label="Drive navigation">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            className={`${styles.navItem} ${currentFolder === item.id ? styles.navItemActive : ""}`}
-            onClick={() => onFolderChange(item.id)}
-            id={`nav-${item.id}`}
-          >
-            <span className={styles.navIcon}>{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      <ScrollArea className="flex-1 px-3">
+        <nav className="space-y-1" aria-label="Drive navigation">
+          {navItems.map((item) => (
+            <Button
+              key={item.id}
+              variant={currentFolder === item.id ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start gap-3 px-3",
+                currentFolder === item.id ? "bg-primary/10 text-primary hover:bg-primary/20" : ""
+              )}
+              onClick={() => onFolderChange(item.id)}
+              id={`nav-${item.id}`}
+            >
+              <span className={cn(
+                "p-1 rounded-md",
+                currentFolder === item.id ? "p-1 rounded-md bg-primary/20" : "text-muted-foreground"
+              )}>
+                {item.icon}
+              </span>
+              <span className="font-medium">{item.label}</span>
+            </Button>
+          ))}
+        </nav>
 
-      <div className={styles.spacer} />
+        <div className="mt-6 mb-2 px-3">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+            Alat Mahasiswa
+          </p>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-3 px-3 text-sm hover:bg-primary/5 hover:text-primary transition-colors group"
+            onClick={onThesisTemplate}
+            id="sidebar-skripsi-template-btn"
+          >
+            <span className="p-1 rounded-md text-muted-foreground group-hover:text-primary group-hover:bg-primary/10">
+              <GraduationCap className="h-4 w-4" />
+            </span>
+            <span className="font-medium">Template Skripsi</span>
+          </Button>
+        </div>
+      </ScrollArea>
+
 
       {/* Storage Quota */}
       {quota && (
-        <div className={styles.quota}>
-          <div className={styles.quotaHeader}>
-            <span className={styles.quotaLabel}>Penyimpanan</span>
-            <span className={styles.quotaValue}>
-              {formatBytes(quota.usage)}
-              {quota.limit ? ` / ${formatBytes(quota.limit)}` : ""}
-            </span>
+        <div className="px-6 py-4 space-y-3">
+          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Cloud className="h-3 w-3" />
+              <span>Penyimpanan</span>
+            </div>
           </div>
-          <div className={styles.quotaBar} role="progressbar" aria-valuenow={usagePercent} aria-valuemin={0} aria-valuemax={100}>
-            <div
-              className={styles.quotaFill}
-              style={{ width: `${usagePercent}%` }}
-            />
+          <div className="space-y-2">
+            <Progress value={usagePercent} className="h-1.5 bg-muted" />
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-muted-foreground">
+                {formatBytes(quota.usage)} terpakai
+              </span>
+              <span className="font-medium">
+                {usagePercent.toFixed(1)}%
+              </span>
+            </div>
           </div>
-          <p className={styles.quotaPercent}>{usagePercent.toFixed(1)}% terpakai</p>
         </div>
       )}
 
       {/* User Profile */}
-      <div className={styles.profile}>
-        {session?.user?.image && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={session.user.image}
-            alt={session.user.name ?? "User"}
-            className={styles.avatar}
-            referrerPolicy="no-referrer"
-          />
-        )}
-        <div className={styles.profileInfo}>
-          <p className={styles.profileName}>{session?.user?.name}</p>
-          <p className={styles.profileEmail}>{session?.user?.email}</p>
+      <div className="p-4 bg-muted/30 border-t mt-auto">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-9 w-9 border">
+            <AvatarImage src={session?.user?.image ?? ""} />
+            <AvatarFallback>{session?.user?.name?.charAt(0) ?? "U"}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate leading-none mb-1">
+              {session?.user?.name}
+            </p>
+            <p className="text-[11px] text-muted-foreground truncate">
+              {session?.user?.email}
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            title="Sign out"
+          >
+            {signingOut ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogOut className="h-4 w-4" />
+            )}
+          </Button>
         </div>
-        <button
-          className={styles.signOutBtn}
-          onClick={handleSignOut}
-          disabled={signingOut}
-          title="Sign out"
-          aria-label="Sign out"
-        >
-          {signingOut ? (
-            <span className={styles.spinnerSm} />
-          ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-          )}
-        </button>
       </div>
     </aside>
   );

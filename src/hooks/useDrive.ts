@@ -151,14 +151,23 @@ export function useDriveQuota() {
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
+  const fetchQuota = useCallback(async () => {
     setLoading(true);
-    fetch("/api/drive/quota")
-      .then((r) => r.json())
-      .then(setQuota)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    try {
+      const r = await fetch("/api/drive/quota");
+      const data = await r.json();
+      setQuota(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { quota, loading };
+  useEffect(() => {
+    fetchQuota();
+  }, [fetchQuota]);
+
+  return { quota, loading, refetch: fetchQuota };
 }
+
