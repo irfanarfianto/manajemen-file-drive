@@ -22,7 +22,8 @@ import {
   Tag,
   Plus,
   X as CloseIcon,
-  Sparkles
+  Sparkles,
+  GraduationCap
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -572,48 +573,30 @@ export function RevisionsModal({
   );
 }
 
-export function QuickNoteModal({
+export function ThesisTemplateModal({
   open,
   onOpenChange,
   currentFolder,
   onCreated,
 }: BaseModalProps & { currentFolder: string; onCreated: () => void }) {
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [title, setTitle] = useState(`Skripsi ${new Date().getFullYear()}`);
   const [loading, setLoading] = useState(false);
 
-  // Reset state when opened
-  useEffect(() => {
-    if (open) {
-      setTitle("");
-      setContent("");
-      setLoading(false);
-    }
-  }, [open]);
-
-  const handleSave = async () => {
-    if (!content.trim()) return;
+  const handleCreate = async () => {
+    if (!title.trim()) return;
     setLoading(true);
-    const t = toast.loading("Menyimpan catatan...");
+    const t = toast.loading("Membuat struktur skripsi...");
     
     try {
-      // Buat file teks dari isi catatan
-      const fileName = (title.trim() || `Catatan_${new Date().toISOString().slice(0, 10)}`) + ".txt";
-      const blob = new Blob([content], { type: "text/plain" });
-      const file = new File([blob], fileName, { type: "text/plain" });
-      
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("parentId", currentFolder);
-
-      const res = await fetch("/api/drive/upload", {
+      const res = await fetch("/api/drive/template/skripsi", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), parentId: currentFolder }),
       });
 
-      if (!res.ok) throw new Error("Gagal menyimpan catatan");
+      if (!res.ok) throw new Error("Gagal membuat template");
 
-      toast.success("Catatan berhasil disimpan", { id: t });
+      toast.success("Struktur skripsi berhasil dibuat!", { id: t });
       onCreated();
       onOpenChange(false);
     } catch (err) {
@@ -627,39 +610,39 @@ export function QuickNoteModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Catatan Kilat</DialogTitle>
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+            <GraduationCap className="h-6 w-6 text-primary" />
+          </div>
+          <DialogTitle className="text-xl font-bold">Template Skripsi</DialogTitle>
           <DialogDescription>
-            Tulis catatan ini lalu simpan ke Drive Anda tanpa membuka file baru.
+            Akan dibuat struktur folder otomatis (Bab 1-5, Referensi, dll) untuk membantu mengorganisir dokumen skripsi Anda.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Input
-              placeholder="Judul Catatan (Opsional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              disabled={loading}
-              className="font-medium"
-            />
-          </div>
-          <div className="space-y-2">
-            <textarea
-              placeholder="Tulis apapun di sini... Hasil diskusi, ide mendadak, dll."
-              className="flex min-h-[180px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={loading}
-              autoFocus
-            />
-          </div>
+        <div className="py-6">
+          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70 mb-2 block">
+            Nama Folder Utama
+          </label>
+          <Input
+            placeholder="Contoh: Skripsi Arsitektur - Irfan"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            autoFocus
+            disabled={loading}
+            className="py-6 px-4 bg-muted/30 border-none shadow-none focus-visible:ring-1 focus-visible:ring-primary/20 font-medium"
+          />
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading} className="rounded-xl">
             Batal
           </Button>
-          <Button onClick={handleSave} disabled={loading || !content.trim()}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Simpan Catatan
+          <Button
+            onClick={handleCreate}
+            disabled={!title.trim() || loading}
+            className="rounded-xl px-6 shadow-lg shadow-primary/20"
+          >
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            Buat Sekarang
           </Button>
         </DialogFooter>
       </DialogContent>

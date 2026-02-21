@@ -8,9 +8,9 @@ import {
   LayoutGrid, 
   List, 
   Home,
-  FileText,
   Menu,
-  Trash2
+  Trash2,
+  FileText
 } from "lucide-react";
 import { Sidebar } from "@/components/drive/Sidebar";
 import { FileGrid } from "@/components/drive/FileGrid";
@@ -22,7 +22,8 @@ import {
   RenameModal, 
   DeleteModal,
   PreviewModal,
-  RevisionsModal
+  RevisionsModal,
+  ThesisTemplateModal
 } from "@/components/drive/Modals";
 import { useDriveFiles, useDriveQuota, useDriveSearch } from "@/hooks/useDrive";
 import type { DriveFile } from "@/lib/drive-types";
@@ -62,6 +63,7 @@ function DashboardInner() {
     | { type: "preview"; file: DriveFile }
     | { type: "revisions"; file: DriveFile }
     | { type: "file-revisions"; file: DriveFile }
+    | { type: "thesisTemplate" }
     | null
   >(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -95,26 +97,8 @@ function DashboardInner() {
     }
   };
 
-  const handleThesisTemplate = async () => {
-    const title = window.prompt("Masukkan nama folder skripsi:", `Skripsi ${new Date().getFullYear()}`);
-    if (!title) return;
-
-    const t = toast.loading("Membuat struktur skripsi...");
-    
-    try {
-      const res = await fetch("/api/drive/template/skripsi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, parentId: currentFolder }),
-      });
-
-      if (!res.ok) throw new Error("Gagal membuat template");
-
-      toast.success("Struktur skripsi berhasil dibuat!", { id: t });
-      refetch();
-    } catch (err) {
-      toast.error((err as Error).message, { id: t });
-    }
+  const handleThesisTemplate = () => {
+    setActiveModal({ type: "thesisTemplate" });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -298,7 +282,7 @@ function DashboardInner() {
                   onFolderChange={(id) => { setCurrentFolder(id); setBreadcrumbs([]); }}
                   quota={quota}
                   onNewFolder={() => setActiveModal({ type: "newFolder" })}
-                  onUpload={() => document.getElementById("file-upload-input")?.click()}
+                  onUpload={() => setActiveModal({ type: "newFolder" })} // Reuse for mobile just to hit the modal or dashboard
                   onThesisTemplate={handleThesisTemplate}
                 />
               </SheetContent>
@@ -473,14 +457,20 @@ function DashboardInner() {
       {/* Modals */}
       <NewFolderModal
         open={activeModal?.type === "newFolder"}
-        onOpenChange={(open) => !open && setActiveModal(null)}
+        onOpenChange={(open: boolean) => !open && setActiveModal(null)}
+        currentFolder={currentFolder}
+        onCreated={refetch}
+      />
+      <ThesisTemplateModal
+        open={activeModal?.type === "thesisTemplate"}
+        onOpenChange={(open: boolean) => !open && setActiveModal(null)}
         currentFolder={currentFolder}
         onCreated={refetch}
       />
       {activeModal?.type === "rename" && (
         <RenameModal
           open={true}
-          onOpenChange={(open) => !open && setActiveModal(null)}
+          onOpenChange={(open: boolean) => !open && setActiveModal(null)}
           file={activeModal.file}
           onRenamed={refetch}
         />
@@ -488,7 +478,7 @@ function DashboardInner() {
       {activeModal?.type === "delete" && (
         <DeleteModal
           open={true}
-          onOpenChange={(open) => !open && setActiveModal(null)}
+          onOpenChange={(open: boolean) => !open && setActiveModal(null)}
           files={activeModal.files}
           onDeleted={() => {
             refetch();
@@ -499,7 +489,7 @@ function DashboardInner() {
       {activeModal?.type === "preview" && (
         <PreviewModal
           open={true}
-          onOpenChange={(open) => !open && setActiveModal(null)}
+          onOpenChange={(open: boolean) => !open && setActiveModal(null)}
           file={activeModal.file}
           onDownload={handleDownload}
           onTagsUpdated={refetch}
@@ -508,7 +498,7 @@ function DashboardInner() {
       {activeModal?.type === "revisions" && (
         <RevisionsModal
           open={true}
-          onOpenChange={(open) => !open && setActiveModal(null)}
+          onOpenChange={(open: boolean) => !open && setActiveModal(null)}
           file={activeModal.file}
         />
       )}
@@ -516,7 +506,7 @@ function DashboardInner() {
       {activeModal?.type === "file-revisions" && (
         <FileRevisionModal
           open={true}
-          onOpenChange={(open) => !open && setActiveModal(null)}
+          onOpenChange={(open: boolean) => !open && setActiveModal(null)}
           file={activeModal.file}
         />
       )}

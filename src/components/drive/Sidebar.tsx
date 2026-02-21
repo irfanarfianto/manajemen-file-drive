@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { 
   FolderPlus, 
@@ -10,7 +10,6 @@ import {
   Loader2,
   ChevronRight,
   Folder,
-  FolderOpen,
   GraduationCap,
   SquareKanban,
   Cloud
@@ -352,7 +351,7 @@ export function Sidebar({
             </Button>
           ))}
 
-          {/* Template Skripsi moved here */}
+          {/* Template Skripsi & Quick Note moved here */}
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 px-3 transition-all hover:bg-primary/5 hover:text-primary group"
