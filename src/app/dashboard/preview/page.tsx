@@ -360,21 +360,18 @@ function PreviewPageInner() {
         <div className="flex-1 bg-muted/20 overflow-auto flex items-center justify-center p-4 relative">
           {previewLoading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10 bg-background/80 backdrop-blur-sm animate-in fade-in duration-500">
-              <div className="flex flex-col items-center gap-6 max-w-[200px] w-full">
-                {/* Modern Pulse Animation */}
-                <div className="flex items-end gap-1.5 h-12">
-                  <div className="w-2 bg-primary/20 rounded-full animate-[bounce_1s_infinite_0ms]" style={{ height: '40%' }}></div>
-                  <div className="w-2 bg-primary/40 rounded-full animate-[bounce_1s_infinite_200ms]" style={{ height: '70%' }}></div>
-                  <div className="w-2 bg-primary/60 rounded-full animate-[bounce_1s_infinite_400ms]" style={{ height: '100%' }}></div>
-                  <div className="w-2 bg-primary/40 rounded-full animate-[bounce_1s_infinite_600ms]" style={{ height: '70%' }}></div>
-                  <div className="w-2 bg-primary/20 rounded-full animate-[bounce_1s_infinite_800ms]" style={{ height: '40%' }}></div>
+              <div className="flex flex-col items-center gap-5">
+                {/* Popular Concentric Ring Spinner */}
+                <div className="relative w-16 h-16">
+                  <div className="absolute inset-0 border-4 border-primary/10 rounded-full"></div>
+                  <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <div className="absolute inset-2 border-4 border-primary/20 border-b-transparent rounded-full animate-[spin_1.5s_linear_infinite_reverse]"></div>
+                  <div className="absolute inset-4 border-4 border-primary/40 border-l-transparent rounded-full animate-[spin_2s_linear_infinite]"></div>
                 </div>
                 
-                <div className="space-y-3 w-full">
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div className="h-full bg-primary animate-[shimmer_2s_infinite] w-[40%] rounded-full shadow-[0_0_8px_rgba(var(--primary),0.5)]"></div>
-                  </div>
-                  <p className="text-[10px] font-black text-primary/40 text-center tracking-[0.2em] uppercase">Memproses File</p>
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-xs font-bold text-foreground/80 tracking-tight">Memuat Pratinjau...</p>
+                  <p className="text-[10px] text-muted-foreground animate-pulse font-medium">Mohon tunggu sebentar</p>
                 </div>
               </div>
             </div>
