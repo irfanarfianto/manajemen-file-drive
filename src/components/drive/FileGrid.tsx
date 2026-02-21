@@ -316,37 +316,39 @@ export function FileGrid({
             }}
           >
             <CardContent className="p-4 relative">
-              {/* Checkbox overlay for grid items */}
-              <div className={cn(
-                "absolute top-3 left-3 z-10 transition-opacity",
-                isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-              )}>
-                <Checkbox 
-                  checked={isSelected}
-                  onCheckedChange={(checked) => {
-                    if (checked !== isSelected) {
-                      onToggleSelect(file.id);
-                    }
-                  }}
-                  className="bg-background/80 backdrop-blur-sm shadow-sm"
-                />
-              </div>
-
               <div className="flex justify-between items-start mb-4">
-                <div className={cn(
-                  "p-2.5 rounded-xl transition-colors ml-6", /* Added margin to make room for checkbox */
-                  folder ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary"
-                )}>
-                  <FileIcon mimeType={file.mimeType} size={28} />
+                {/* Icon container — checkbox overlay di pojok kiri atas */}
+                <div className="relative flex-shrink-0">
+                  <div className={cn(
+                    "p-2.5 rounded-xl transition-colors",
+                    folder ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary/5 group-hover:text-primary"
+                  )}>
+                    <FileIcon mimeType={file.mimeType} size={28} />
+                  </div>
+                  {/* Checkbox di pojok kiri bawah icon container */}
+                  <div className={cn(
+                    "absolute -bottom-1.5 -left-1.5 z-10 transition-opacity",
+                    isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                  )}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={(checked) => {
+                        if (checked !== isSelected) onToggleSelect(file.id);
+                      }}
+                      className="bg-background/90 backdrop-blur-sm shadow-sm border-2"
+                    />
+                  </div>
                 </div>
+
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                  <FileActions 
-                    file={file} 
-                    folder={folder} 
-                    onAction={(action) => onFileAction(file, action)} 
+                  <FileActions
+                    file={file}
+                    folder={folder}
+                    onAction={(action) => onFileAction(file, action)}
                   />
                 </div>
               </div>
+
               <div className="space-y-1">
                 <p className="font-semibold text-sm truncate pr-2" title={file.name}>
                   {file.name}
