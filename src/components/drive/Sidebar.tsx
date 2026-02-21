@@ -8,12 +8,12 @@ import {
   HardDrive, 
   LogOut,
   Loader2,
-  Cloud,
   ChevronRight,
   Folder,
   FolderOpen,
   GraduationCap,
-  SquareKanban
+  SquareKanban,
+  Cloud
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -22,15 +22,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { FileIcon } from "@/components/ui/FileIcon";
 import { cn } from "@/lib/utils";
-
-interface SidebarProps {
-  currentFolder: string;
-  onFolderChange: (folderId: string) => void;
-  quota: { limit: number | null; usage: number } | null;
-  onNewFolder: () => void;
-  onUpload: () => void;
-  onThesisTemplate: () => void;
-}
 
 interface FolderNode {
   id: string;
@@ -43,6 +34,14 @@ interface DriveSibling {
   mimeType: string;
 }
 
+interface SidebarProps {
+  currentFolder: string;
+  onFolderChange: (folderId: string) => void;
+  quota: { limit: number | null; usage: number } | null;
+  onNewFolder: () => void;
+  onUpload: () => void;
+  onThesisTemplate: () => void;
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) {
@@ -51,6 +50,113 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+// ─── Recursive Tree Item ──────────────────────────────────────────────────
+interface SidebarTreeItemProps {
+  folder: FolderNode | DriveSibling;
+  level: number;
+  currentFolder: string;
+  onFolderChange: (folderId: string) => void;
+}
+
+function SidebarTreeItem({ folder, level, currentFolder, onFolderChange }: SidebarTreeItemProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [children, setChildren] = useState<DriveSibling[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  const isActive = currentFolder === folder.id;
+
+  const toggleExpand = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+
+    if (newExpanded && !hasFetched) {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/drive/files?folderId=${folder.id}`);
+        const data = await res.json();
+        const foldersOnly = (data.files || []).filter(
+          (f: any) => f.mimeType === "application/vnd.google-apps.folder"
+        );
+        setChildren(foldersOnly);
+        setHasFetched(true);
+      } catch (err) {
+        console.error("Failed to fetch sub-folders:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-0.5">
+      <button
+        onClick={() => onFolderChange(folder.id)}
+        className={cn(
+          "group flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all relative overflow-hidden",
+          isActive 
+            ? "bg-primary/10 text-primary font-semibold" 
+            : "text-foreground/60 hover:bg-muted/80 hover:text-foreground"
+        )}
+        style={{ paddingLeft: `${level * 12 + 8}px` }}
+      >
+        <div 
+          onClick={toggleExpand}
+          className="p-1 -ml-1 rounded-sm hover:bg-primary/20 transition-colors mr-0.5 z-10"
+        >
+          <ChevronRight 
+            className={cn(
+              "h-3 w-3 transition-transform duration-200", 
+              isExpanded && "rotate-90",
+              !isExpanded && "opacity-40"
+            )} 
+          />
+        </div>
+        <Folder className={cn("h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground/60")} />
+        <span className="truncate flex-1">{folder.name}</span>
+        {isActive && <div className="absolute left-0 top-1.5 bottom-1.5 w-1 bg-primary rounded-r-full" />}
+      </button>
+
+      {/* Animated Height Container */}
+      <div 
+        className={cn(
+          "grid transition-[grid-template-rows] duration-300 ease-in-out",
+          isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+        )}
+      >
+        <div className="overflow-hidden">
+          {loading ? (
+            <div className="py-2 flex items-center gap-2" style={{ paddingLeft: `${(level + 1) * 12 + 20}px` }}>
+              <Loader2 className="h-2.5 w-2.5 animate-spin text-primary/30" />
+              <span className="text-[10px] text-muted-foreground/40 font-medium">Memuat...</span>
+            </div>
+          ) : (
+            children.map((child) => (
+              <SidebarTreeItem 
+                key={child.id} 
+                folder={child} 
+                level={level + 1} 
+                currentFolder={currentFolder} 
+                onFolderChange={onFolderChange}
+              />
+            ))
+          )}
+          {hasFetched && children.length === 0 && !loading && (
+             <p 
+              className="py-1 text-[10px] text-muted-foreground/30 italic font-medium" 
+              style={{ paddingLeft: `${(level + 1) * 12 + 24}px` }}
+             >
+               Kosong
+             </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Sidebar Component ───────────────────────────────────────────────
 export function Sidebar({
   currentFolder,
   onFolderChange,
@@ -62,34 +168,24 @@ export function Sidebar({
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
   
-  // Folder Tree States
-  const [folderPath, setFolderPath] = useState<FolderNode[]>([]);
-  const [siblings, setSiblings] = useState<DriveSibling[]>([]);
-  const [treeLoading, setTreeLoading] = useState(false);
+  const [rootFolders, setRootFolders] = useState<DriveSibling[]>([]);
+  const [rootLoading, setRootLoading] = useState(false);
 
   useEffect(() => {
-    if (currentFolder === "root" || currentFolder === "kanban") {
-      setFolderPath([]);
-      setSiblings([]);
-      return;
-    }
-
-    const fetchTree = async () => {
-      setTreeLoading(true);
+    const fetchRoot = async () => {
+      setRootLoading(true);
       try {
-        const res = await fetch(`/api/drive/file-path?fileId=${currentFolder}`);
+        const res = await fetch(`/api/drive/files?folderId=root`);
         const data = await res.json();
-        setFolderPath(data.folderPath || []);
-        setSiblings(data.siblings || []);
-      } catch (error) {
-        console.error("Failed to fetch tree:", error);
+        setRootFolders((data.files || []).filter((f: any) => f.mimeType === "application/vnd.google-apps.folder"));
+      } catch (err) {
+        console.error("Failed to fetch root folders:", err);
       } finally {
-        setTreeLoading(false);
+        setRootLoading(false);
       }
     };
-
-    fetchTree();
-  }, [currentFolder]);
+    fetchRoot();
+  }, []);
 
   const usagePercent =
     quota?.limit && quota.usage
@@ -134,16 +230,17 @@ export function Sidebar({
       <div className="px-4 mb-4 flex flex-col gap-2">
         <Button 
           onClick={onUpload} 
-          className="w-full justify-start gap-2 shadow-sm"
+          className="w-full justify-start gap-2 shadow-sm relative overflow-hidden group"
           id="sidebar-upload-btn"
         >
-          <Upload className="h-4 w-4" />
+          <Upload className="h-4 w-4 transition-transform group-hover:-translate-y-1" />
           Upload File
+          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
         </Button>
         <Button 
           variant="secondary" 
           onClick={onNewFolder} 
-          className="w-full justify-start gap-2 bg-secondary/50 hover:bg-secondary"
+          className="w-full justify-start gap-2 bg-secondary/50 hover:bg-secondary transition-all"
           id="sidebar-new-folder-btn"
         >
           <FolderPlus className="h-4 w-4" />
@@ -154,22 +251,22 @@ export function Sidebar({
       <Separator className="mx-4 w-auto mb-4" />
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3">
+      <ScrollArea className="flex-1 px-3 no-scrollbar">
         <nav className="space-y-1 mb-6" aria-label="Drive navigation">
           {navItems.map((item) => (
             <Button
               key={item.id}
               variant={currentFolder === item.id ? "secondary" : "ghost"}
               className={cn(
-                "w-full justify-start gap-3 px-3",
+                "w-full justify-start gap-3 px-3 transition-all",
                 currentFolder === item.id ? "bg-primary/10 text-primary hover:bg-primary/20" : ""
               )}
               onClick={() => onFolderChange(item.id)}
               id={`nav-${item.id}`}
             >
               <span className={cn(
-                "p-1 rounded-md",
-                currentFolder === item.id ? "p-1 rounded-md bg-primary/20" : "text-muted-foreground"
+                "p-1 rounded-md transition-colors",
+                currentFolder === item.id ? "bg-primary/20" : "text-muted-foreground"
               )}>
                 {item.icon}
               </span>
@@ -178,96 +275,30 @@ export function Sidebar({
           ))}
         </nav>
 
-        {/* Dynamic Folder Tree */}
-        {currentFolder !== "root" && currentFolder !== "kanban" && (
-          <div className="mb-6 space-y-4">
-            <div>
-              <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">
-                Hirarki Folder
-              </p>
-              <nav className="space-y-0.5">
-                {treeLoading ? (
-                  <div className="px-3 py-2 flex items-center gap-2">
-                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/40" />
-                    <span className="text-[11px] text-muted-foreground/50">Memuat hirarki...</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Path Breadcrumbs in Sidebar */}
-                    <div className="space-y-0.5 px-1">
-                      {folderPath.map((folder, i) => (
-                        <button
-                          key={folder.id}
-                          onClick={() => onFolderChange(folder.id)}
-                          className={cn(
-                            "flex items-center gap-1.5 w-full text-left px-2 py-1 rounded transition-colors text-[11px]",
-                            folder.id === currentFolder 
-                              ? "bg-primary/5 text-primary font-semibold" 
-                              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                          )}
-                          style={{ paddingLeft: `${(i + 1) * 8}px` }}
-                        >
-                          <ChevronRight className="h-2.5 w-2.5 shrink-0 opacity-40" />
-                          <Folder className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{folder.name}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <Separator className="my-2 opacity-50 mx-2" />
-
-                    {/* Siblings/Contents List */}
-                    <div className="space-y-0.5 px-1">
-                      <p className="px-2 text-[9px] font-semibold text-muted-foreground/40 uppercase mb-1">Isi Folder Ini</p>
-                      {siblings.length === 0 ? (
-                        <p className="px-2 py-1 text-[10px] text-muted-foreground/30 italic">Folder kosong</p>
-                      ) : (
-                        siblings.map(file => {
-                          const isFolder = file.mimeType === "application/vnd.google-apps.folder";
-                          const isCurrent = file.id === currentFolder;
-
-                          return (
-                            <button
-                              key={file.id}
-                              onClick={() => {
-                                if (isFolder) {
-                                  onFolderChange(file.id);
-                                } else {
-                                  // Navigasi ke preview
-                                  const params = new URLSearchParams({
-                                    fileId: file.id,
-                                    fileName: file.name,
-                                    mimeType: file.mimeType,
-                                  });
-                                  window.location.href = `/dashboard/preview?${params.toString()}`;
-                                }
-                              }}
-                              className={cn(
-                                "flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all",
-                                isCurrent 
-                                  ? "bg-primary/10 text-primary font-semibold"
-                                  : "text-foreground/60 hover:bg-muted/60 hover:text-foreground"
-                              )}
-                              style={{ paddingLeft: `${(folderPath.length + 1) * 8}px` }}
-                            >
-                              {isFolder 
-                                ? <FolderOpen className={cn("h-3 w-3 shrink-0", isCurrent ? "text-primary" : "text-muted-foreground/60")} />
-                                : <div className="h-3 w-3 shrink-0 flex items-center justify-center opacity-70">
-                                    <FileIcon mimeType={file.mimeType} className="h-2.5 w-2.5" />
-                                  </div>
-                              }
-                              <span className="truncate flex-1">{file.name}</span>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </>
-                )}
-              </nav>
-            </div>
+        {/* Real Tree View with Expand/Collapse */}
+        <div className="mb-6 space-y-2">
+          <p className="px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">
+            Struktur Folder
+          </p>
+          <div className="space-y-0.5">
+            {rootLoading ? (
+              <div className="px-3 py-4 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary/40" />
+                <span className="text-[10px] text-muted-foreground/50 font-medium">Memuat struktur...</span>
+              </div>
+            ) : (
+              rootFolders.map((folder) => (
+                <SidebarTreeItem 
+                  key={folder.id} 
+                  folder={folder} 
+                  level={0} 
+                  currentFolder={currentFolder} 
+                  onFolderChange={onFolderChange} 
+                />
+              ))
+            )}
           </div>
-        )}
+        </div>
 
         <div className="mb-2 px-3">
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
@@ -287,52 +318,45 @@ export function Sidebar({
         </div>
       </ScrollArea>
 
-
-      {/* Storage Quota */}
-      {quota && (
-        <div className="px-6 py-4 space-y-3">
-          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Cloud className="h-3 w-3" />
+      {/* Storage & User */}
+      <div className="p-4 bg-muted/20 border-t mt-auto">
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <Cloud className="h-4 w-4 text-primary" />
               <span>Penyimpanan</span>
             </div>
+            <span className="text-[10px] font-bold text-muted-foreground">
+              {usagePercent.toFixed(1)}%
+            </span>
           </div>
-          <div className="space-y-2">
-            <Progress value={usagePercent} className="h-1.5 bg-muted" />
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-muted-foreground">
-                {formatBytes(quota.usage)} terpakai
-              </span>
-              <span className="font-medium">
-                {usagePercent.toFixed(1)}%
-              </span>
-            </div>
+          <Progress value={usagePercent} className="h-1.5" />
+          <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground/70 font-medium">
+             <span>{quota ? formatBytes(quota.usage) : "0 MB"} terpakai</span>
+             <span>{quota?.limit ? formatBytes(quota.limit) : "Tanpa batas"}</span>
           </div>
         </div>
-      )}
 
-      {/* User Profile */}
-      <div className="p-4 bg-muted/30 border-t mt-auto">
+        <Separator className="mb-4 opacity-50" />
+
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9 border">
+          <Avatar className="h-9 w-9 border-2 border-background shadow-sm hover:scale-105 transition-transform flex-shrink-0">
             <AvatarImage src={session?.user?.image ?? ""} />
-            <AvatarFallback>{session?.user?.name?.charAt(0) ?? "U"}</AvatarFallback>
+            <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
+              {session?.user?.name?.charAt(0) ?? "U"}
+            </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate leading-none mb-1">
-              {session?.user?.name}
-            </p>
-            <p className="text-[11px] text-muted-foreground truncate">
-              {session?.user?.email}
-            </p>
+            <p className="text-xs font-bold truncate text-foreground leading-tight">{session?.user?.name}</p>
+            <p className="text-[10px] text-muted-foreground truncate">{session?.user?.email}</p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
             onClick={handleSignOut}
             disabled={signingOut}
-            title="Sign out"
+            title="Keluar"
           >
             {signingOut ? (
               <Loader2 className="h-4 w-4 animate-spin" />
