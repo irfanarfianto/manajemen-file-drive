@@ -34,7 +34,13 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newText, setNewText] = useState("");
-  const [newPage, setNewPage] = useState("");
+
+  // Parse "12, teks revisi" → { page: 12, text: "teks revisi" }
+  const parseInput = (raw: string): { page?: number; text: string } => {
+    const match = raw.match(/^(\d+),\s*(.+)/);
+    if (match) return { page: parseInt(match[1], 10), text: match[2].trim() };
+    return { text: raw.trim() };
+  };
 
   const revisions: RevisionItem[] = allData.files?.[fileId]?.revisions ?? [];
   const doneCount = revisions.filter(r => r.done).length;
@@ -74,15 +80,14 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
   });
 
   const handleAdd = async () => {
-    const text = newText.trim();
-    if (!text) return;
-    const page = newPage.trim() ? parseInt(newPage.trim(), 10) : undefined;
+    const raw = newText.trim();
+    if (!raw) return;
+    const { page, text } = parseInput(raw);
     setNewText("");
-    setNewPage("");
     await save(withUpdated([...revisions, {
       id: Date.now().toString(), text, done: false,
       createdAt: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-      ...(page && !isNaN(page) ? { page } : {}),
+      ...(page ? { page } : {}),
     }]));
   };
 
@@ -187,28 +192,18 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
       <div className="p-4 border-t bg-card/50 flex-shrink-0 space-y-2">
         <div className="flex gap-2">
           <Input
-            placeholder="Tulis poin revisi..."
+            placeholder="12, tulis poin revisi... (atau langsung tulis)"
             value={newText}
             onChange={e => setNewText(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
             disabled={saving || loading}
             className="text-sm flex-1"
           />
-          <Input
-            type="number"
-            placeholder="Hal."
-            value={newPage}
-            onChange={e => setNewPage(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") handleAdd(); }}
-            disabled={saving || loading}
-            className="w-20 text-sm text-center shrink-0"
-            min={1}
-          />
           <Button size="icon" onClick={handleAdd} disabled={!newText.trim() || saving || loading} className="flex-shrink-0">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground/50">"Hal." opsional — isi nomor halaman jika ada.</p>
+        <p className="text-[10px] text-muted-foreground/50">Awali dengan nomor halaman, contoh: <span className="font-mono">24, perbaiki sub judul</span></p>
       </div>
     </div>
   );

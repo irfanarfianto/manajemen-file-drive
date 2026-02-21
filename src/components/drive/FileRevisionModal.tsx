@@ -44,7 +44,13 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newItemText, setNewItemText] = useState("");
-  const [newItemPage, setNewItemPage] = useState<string>("");
+
+  // Parse "12, teks revisi" → { page: 12, text: "teks revisi" }
+  const parseInput = (raw: string): { page?: number; text: string } => {
+    const match = raw.match(/^(\d+),\s*(.+)/);
+    if (match) return { page: parseInt(match[1], 10), text: match[2].trim() };
+    return { text: raw.trim() };
+  };
 
   const revisions: RevisionItem[] = allData.files?.[file.id]?.revisions ?? [];
   const doneCount = revisions.filter(r => r.done).length;
@@ -69,7 +75,6 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
     if (open) {
       fetchNotes();
       setNewItemText("");
-      setNewItemPage("");
     }
   }, [open, fetchNotes]);
 
@@ -99,18 +104,17 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
   });
 
   const handleAdd = async () => {
-    const text = newItemText.trim();
-    if (!text) return;
-    const page = newItemPage.trim() ? parseInt(newItemPage.trim(), 10) : undefined;
+    const raw = newItemText.trim();
+    if (!raw) return;
+    const { page, text } = parseInput(raw);
     const newItem: RevisionItem = {
       id: Date.now().toString(),
       text,
       done: false,
       createdAt: new Date().toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
-      ...(page && !isNaN(page) ? { page } : {}),
+      ...(page ? { page } : {}),
     };
     setNewItemText("");
-    setNewItemPage("");
     await saveData(getUpdatedData([...revisions, newItem]));
   };
 
@@ -292,22 +296,12 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
           <div className="space-y-2">
             <div className="flex gap-2">
               <Input
-                placeholder="Tulis poin revisi dari dosen..."
+                placeholder="12, tulis poin revisi... (atau langsung tulis)"
                 value={newItemText}
                 onChange={(e) => setNewItemText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
                 disabled={saving || loading}
                 className="flex-1 text-sm"
-              />
-              <Input
-                type="number"
-                placeholder="Hal."
-                value={newItemPage}
-                onChange={(e) => setNewItemPage(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
-                disabled={saving || loading}
-                className="w-20 text-sm text-center shrink-0"
-                min={1}
               />
               <Button
                 onClick={handleAdd}
@@ -322,7 +316,7 @@ export function FileRevisionModal({ open, onOpenChange, file }: FileRevisionModa
                 )}
               </Button>
             </div>
-            <p className="text-[11px] text-muted-foreground/50">Kolom "Hal." bersifat opsional — isi jika revisi ada di halaman tertentu.</p>
+            <p className="text-[11px] text-muted-foreground/50">Awali dengan nomor halaman, contoh: <span className="font-mono">24, perbaiki sub judul</span></p>
           </div>
         </div>
       </SheetContent>
