@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Plus, MoreVertical, Trash2, ArrowRight, ArrowLeft,
-  Loader2, Save, Paperclip, X, ExternalLink, Search
+  Loader2, Save, Paperclip, X, ExternalLink, Search, Calendar,
+  CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,14 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileIcon } from "@/components/ui/FileIcon";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { id } from "date-fns/locale";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface AttachedFile {
   fileId: string;
@@ -31,6 +40,8 @@ interface Task {
   id: string;
   content: string;
   file?: AttachedFile;
+  deadline?: string;
+  deadlineType?: "single" | "range";
 }
 
 interface Column {
@@ -185,6 +196,28 @@ export function KanbanBoard() {
   const [newTaskContent, setNewTaskContent] = useState<Record<string, string>>({});
   const [pendingFile, setPendingFile] = useState<Record<string, AttachedFile | null>>({});
   const [showPicker, setShowPicker] = useState<string | null>(null); // colId
+  const [editingDeadline, setEditingDeadline] = useState<string | null>(null); // taskId
+  const [deadlineType, setDeadlineType] = useState<Record<string, "single" | "range">>({});
+  const [deadlineStart, setDeadlineStart] = useState<Record<string, string>>({});
+  const [deadlineEnd, setDeadlineEnd] = useState<Record<string, string>>({});
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    if (dateStr.includes(" - ")) {
+      return dateStr.split(" - ").map(d => {
+        try {
+          const dt = new Date(d);
+          return dt.toLocaleDateString("id-ID", { day: 'numeric', month: 'short' });
+        } catch { return d; }
+      }).join(" - ");
+    }
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      return dateStr;
+    }
+  };
 
   // Navigate to preview (same logic as dashboard)
   const OFFICE_TYPES = new Set([
@@ -245,18 +278,35 @@ export function KanbanBoard() {
     const content = newTaskContent[colId]?.trim();
     if (!content) return;
     const file = pendingFile[colId] ?? undefined;
+    
+    let deadline = "";
+    const type = deadlineType[colId] || "single";
+    if (type === "single" && deadlineStart[colId]) {
+      deadline = deadlineStart[colId];
+    } else if (type === "range" && deadlineStart[colId] && deadlineEnd[colId]) {
+      deadline = `${deadlineStart[colId]} - ${deadlineEnd[colId]}`;
+    }
 
     const newCols = columns.map(col => {
       if (col.id === colId) {
         return {
           ...col,
-          tasks: [...col.tasks, { id: Date.now().toString(), content, file }],
+          tasks: [...col.tasks, { 
+            id: Date.now().toString(), 
+            content, 
+            file, 
+            deadline: deadline || undefined,
+            deadlineType: type 
+          }],
         };
       }
       return col;
     });
     setNewTaskContent({ ...newTaskContent, [colId]: "" });
     setPendingFile({ ...pendingFile, [colId]: null });
+    setDeadlineStart({ ...deadlineStart, [colId]: "" });
+    setDeadlineEnd({ ...deadlineEnd, [colId]: "" });
+    setDeadlineType({ ...deadlineType, [colId]: "single" });
     setShowPicker(null);
     updateColumns(newCols);
   };
@@ -281,6 +331,15 @@ export function KanbanBoard() {
         ? { ...col, tasks: col.tasks.map(t => t.id === taskId ? { ...t, file } : t) }
         : col
     ));
+  };
+
+  const updateTaskDeadline = (colId: string, taskId: string, deadline: string, type: "single" | "range") => {
+    updateColumns(columns.map(col =>
+      col.id === colId
+        ? { ...col, tasks: col.tasks.map(t => t.id === taskId ? { ...t, deadline, deadlineType: type } : t) }
+        : col
+    ));
+    setEditingDeadline(null);
   };
 
   const moveTask = (taskId: string, sourceColId: string, targetColId: string) => {
@@ -400,6 +459,16 @@ export function KanbanBoard() {
                             <ExternalLink className="h-3 w-3 text-primary/50 flex-shrink-0" />
                           </button>
                         )}
+                        {/* Deadline badge */}
+                        {task.deadline && (
+                          <button
+                            onClick={() => setEditingDeadline(task.id)}
+                            className="flex items-center gap-1.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-md w-fit border border-amber-200/50 dark:border-amber-900/50 hover:bg-amber-100 transition-colors"
+                          >
+                            {task.deadlineType === "range" ? <CalendarDays className="h-3 w-3" /> : <Calendar className="h-3 w-3" />}
+                            {formatDate(task.deadline)}
+                          </button>
+                        )}
                       </div>
 
                       {/* Task menu */}
@@ -447,12 +516,112 @@ export function KanbanBoard() {
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setEditingDeadline(task.id)}>
+                            <Calendar className="mr-2 h-4 w-4" /> Atur Deadline
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => deleteTask(col.id, task.id)} className="text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" /> Hapus
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </CardContent>
+
+                    {/* Inline deadline editor (shown per-task) */}
+                    {editingDeadline === task.id && (
+                      <div className="px-3 pb-3 border-t bg-muted/30 pt-3 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase">Atur Deadline</span>
+                          <div className="flex bg-muted rounded-lg p-0.5 scale-75 origin-right">
+                            <button
+                              onClick={() => setDeadlineType({ ...deadlineType, [col.id]: "single" })}
+                              className={cn(
+                                "px-2 py-0.5 text-[10px] rounded-md transition-all",
+                                (deadlineType[col.id] || task.deadlineType || "single") === "single" ? "bg-card shadow-sm" : ""
+                              )}
+                            >Tunggal</button>
+                            <button
+                              onClick={() => setDeadlineType({ ...deadlineType, [col.id]: "range" })}
+                              className={cn(
+                                "px-2 py-0.5 text-[10px] rounded-md transition-all",
+                                (deadlineType[col.id] || task.deadlineType) === "range" ? "bg-card shadow-sm" : ""
+                              )}
+                            >Rentang</button>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          {/* Edit Start/Single Date */}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 flex-1 justify-start text-left font-normal text-[10px] px-2 bg-muted/20 border-none"
+                              >
+                                <Calendar className="mr-2 h-3 w-3" />
+                                {deadlineStart[task.id] 
+                                  ? format(new Date(deadlineStart[task.id]), "dd MMM yyyy", { locale: id }) 
+                                  : (task.deadline ? format(new Date(task.deadline.split(" - ")[0]), "dd MMM yyyy", { locale: id }) : "Pilih")}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={deadlineStart[task.id] ? new Date(deadlineStart[task.id]) : (task.deadline ? new Date(task.deadline.split(" - ")[0]) : undefined)}
+                                onSelect={(date) => setDeadlineStart({ ...deadlineStart, [task.id]: date ? date.toISOString() : "" })}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+
+                          {(deadlineType[col.id] || task.deadlineType) === "range" && (
+                            <>
+                              <span className="text-[10px]">-</span>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 flex-1 justify-start text-left font-normal text-[10px] px-2 bg-muted/20 border-none"
+                                  >
+                                    <CalendarDays className="mr-2 h-3 w-3" />
+                                    {deadlineEnd[task.id] 
+                                      ? format(new Date(deadlineEnd[task.id]), "dd MMM yyyy", { locale: id }) 
+                                      : (task.deadline?.includes(" - ") ? format(new Date(task.deadline.split(" - ")[1]), "dd MMM yyyy", { locale: id }) : "Selesai")}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <CalendarComponent
+                                    mode="single"
+                                    selected={deadlineEnd[task.id] ? new Date(deadlineEnd[task.id]) : (task.deadline?.includes(" - ") ? new Date(task.deadline.split(" - ")[1]) : undefined)}
+                                    onSelect={(date) => setDeadlineEnd({ ...deadlineEnd, [task.id]: date ? date.toISOString() : "" })}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" className="h-7 text-[10px] flex-1" onClick={() => {
+                            const start = deadlineStart[task.id] || (task.deadline ? task.deadline.split(" - ")[0] : "");
+                            const end = deadlineEnd[task.id] || (task.deadline?.includes(" - ") ? task.deadline.split(" - ")[1] : "");
+                            const type = deadlineType[col.id] || task.deadlineType || "single";
+                            let dl = start;
+                            if (type === "range" && start && end) dl = `${start} - ${end}`;
+                            updateTaskDeadline(col.id, task.id, dl, type);
+                            // Clear temp edit state
+                            const newStarts = { ...deadlineStart }; delete newStarts[task.id]; setDeadlineStart(newStarts);
+                            const newEnds = { ...deadlineEnd }; delete newEnds[task.id]; setDeadlineEnd(newEnds);
+                          }}>Simpan</Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-[10px]" onClick={() => {
+                            setEditingDeadline(null);
+                            const newStarts = { ...deadlineStart }; delete newStarts[task.id]; setDeadlineStart(newStarts);
+                            const newEnds = { ...deadlineEnd }; delete newEnds[task.id]; setDeadlineEnd(newEnds);
+                          }}>Batal</Button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Inline file picker (shown per-task) */}
                     {showPicker === `${col.id}__${task.id}` && (
@@ -480,7 +649,10 @@ export function KanbanBoard() {
                         value={newTaskContent[col.id] || ""}
                         onChange={(e) => setNewTaskContent({ ...newTaskContent, [col.id]: e.target.value })}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") addTask(col.id);
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            addTask(col.id);
+                          }
                           if (e.key === "Escape") {
                             const updated = { ...newTaskContent };
                             delete updated[col.id];
@@ -489,6 +661,90 @@ export function KanbanBoard() {
                           }
                         }}
                       />
+
+                      {/* Deadline selector */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Deadline</label>
+                          <div className="flex bg-muted rounded-lg p-0.5 scale-90 origin-right">
+                            <button
+                              onClick={() => setDeadlineType({ ...deadlineType, [col.id]: "single" })}
+                              className={cn(
+                                "px-2 py-0.5 text-[10px] rounded-md transition-all",
+                                (deadlineType[col.id] || "single") === "single" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                              )}
+                            >
+                              Tunggal
+                            </button>
+                            <button
+                              onClick={() => setDeadlineType({ ...deadlineType, [col.id]: "range" })}
+                              className={cn(
+                                "px-2 py-0.5 text-[10px] rounded-md transition-all",
+                                deadlineType[col.id] === "range" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                              )}
+                            >
+                              Rentang
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2 items-center">
+                          {/* Start Date / Single Date */}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className={cn(
+                                  "h-8 flex-1 justify-start text-left font-normal text-[11px] px-2 bg-muted/20 border-none",
+                                  !deadlineStart[col.id] && "text-muted-foreground"
+                                )}
+                              >
+                                <Calendar className="mr-2 h-3.5 w-3.5" />
+                                {deadlineStart[col.id] ? format(new Date(deadlineStart[col.id]), "dd MMM yyyy", { locale: id }) : "Pilih tanggal"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <CalendarComponent
+                                mode="single"
+                                selected={deadlineStart[col.id] ? new Date(deadlineStart[col.id]) : undefined}
+                                onSelect={(date) => setDeadlineStart({ ...deadlineStart, [col.id]: date ? date.toISOString() : "" })}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+
+                          {deadlineType[col.id] === "range" && (
+                            <>
+                              <span className="text-muted-foreground text-xs">-</span>
+                              {/* End Date */}
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                      "h-8 flex-1 justify-start text-left font-normal text-[11px] px-2 bg-muted/20 border-none",
+                                      !deadlineEnd[col.id] && "text-muted-foreground"
+                                    )}
+                                  >
+                                    <CalendarDays className="mr-2 h-3.5 w-3.5" />
+                                    {deadlineEnd[col.id] ? format(new Date(deadlineEnd[col.id]), "dd MMM yyyy", { locale: id }) : "Selesai"}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                  <CalendarComponent
+                                    mode="single"
+                                    selected={deadlineEnd[col.id] ? new Date(deadlineEnd[col.id]) : undefined}
+                                    onSelect={(date) => setDeadlineEnd({ ...deadlineEnd, [col.id]: date ? date.toISOString() : "" })}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                            </>
+                          )}
+                        </div>
+                      </div>
 
                       {/* File attachment for new task */}
                       {pendingFile[col.id] ? (
