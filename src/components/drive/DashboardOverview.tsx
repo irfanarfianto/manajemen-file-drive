@@ -5,27 +5,23 @@ import {
   Cloud, 
   Clock, 
   CheckCircle2, 
-  FileText, 
-  Folder, 
-  Plus, 
-  ChevronRight,
-  TrendingUp,
+  Plus,
+  Folder,
   LayoutDashboard,
-  HardDrive,
-  BarChart3
+  ChevronRight,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { FileIcon } from "@/components/ui/FileIcon";
 import { useDriveQuota, useDriveFiles } from "@/hooks/useDrive";
 import { useKanban } from "@/hooks/useKanban";
 import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatFileSize, getFileCategory, type DriveFile } from "@/lib/drive-types";
-import { cn } from "@/lib/utils";
 
 interface DashboardOverviewProps {
-  onFolderOpen: (id: string, name: string) => void;
   onKanbanOpen: () => void;
   onNewFolder: () => void;
   onUpload: () => void;
@@ -33,7 +29,6 @@ interface DashboardOverviewProps {
 }
 
 export function DashboardOverview({ 
-  onFolderOpen, 
   onKanbanOpen, 
   onNewFolder, 
   onUpload,

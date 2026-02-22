@@ -41,6 +41,7 @@ interface FileGridProps {
   onToggleAll: () => void;
   onFolderOpen: (id: string, name: string) => void;
   onFileAction: (file: DriveFile, action: "delete" | "rename" | "open" | "download" | "preview" | "revisions" | "file-revisions") => void;
+  searchQuery?: string;
 }
 
 function SkeletonCard({ mode }: { mode: "grid" | "list" }) {
@@ -164,6 +165,7 @@ export function FileGrid({
   onToggleAll,
   onFolderOpen,
   onFileAction,
+  searchQuery,
 }: FileGridProps) {
   if (loading) {
     return (
@@ -199,8 +201,7 @@ export function FileGrid({
   }
 
   if (files.length === 0) {
-    // If it's a search result (indicated by the parent component or by the error context)
-    const isSearching = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("q");
+    const isSearching = !!searchQuery?.trim();
 
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center px-4 border-2 border-dashed rounded-3xl bg-muted/5 animate-in fade-in zoom-in duration-300">

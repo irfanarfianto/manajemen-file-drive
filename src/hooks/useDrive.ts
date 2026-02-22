@@ -67,7 +67,7 @@ export function useDriveFiles(
         setLoading(false);
       }
     },
-    [folderId, enabled]
+    [folderId, enabled, orderBy]
   );
 
   useEffect(() => {
