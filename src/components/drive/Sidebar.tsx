@@ -57,7 +57,7 @@ export function Sidebar({
       try {
         const res = await fetch("/api/drive/files?folderId=root");
         const data = await res.json();
-        setRootFolders(data.files?.filter((f: DriveFile) => f.mimeType === "application/vnd.google-apps.folder") || []);
+        setRootFolders(data.files || []);
       } catch (err) {
         console.error("Failed to fetch root folders:", err);
       } finally {
@@ -75,10 +75,10 @@ export function Sidebar({
     }
     const fetchPath = async () => {
       try {
-        const res = await fetch(`/api/drive/file/path?fileId=${currentFolder}`);
+        const res = await fetch(`/api/drive/file-path?fileId=${currentFolder}`);
         const data = await res.json();
-        if (data.path) {
-          setAutoExpandPath(data.path.map((p: { id: string }) => p.id));
+        if (data.folderPath) {
+          setAutoExpandPath(data.folderPath.map((p: { id: string }) => p.id));
         }
       } catch (err) {
         console.error("Failed to fetch path:", err);
