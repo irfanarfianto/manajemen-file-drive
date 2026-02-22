@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DriveFile } from "@/lib/drive-types";
+import { FileIcon } from "@/components/ui/FileIcon";
 
 interface SidebarTreeItemProps {
   folder: DriveFile;
@@ -87,6 +88,8 @@ export function SidebarTreeItem({
               mimeType: folder.mimeType,
               fileSize: folder.size || "0",
               modifiedTime: folder.modifiedTime || "",
+              webViewLink: folder.webViewLink || "",
+              webContentLink: folder.webContentLink || "",
             });
             window.location.href = `/dashboard/preview?${params.toString()}`;
           }
@@ -110,6 +113,7 @@ export function SidebarTreeItem({
           />
         </div>
         
+        <FileIcon mimeType={folder.mimeType} className="h-3.5 w-3.5 flex-shrink-0" />
         <span className="truncate">{folder.name}</span>
 
         {loading && (
@@ -119,17 +123,15 @@ export function SidebarTreeItem({
 
       {isExpanded && children.length > 0 && (
         <div className="animate-in slide-in-from-left-2 duration-200">
-          {children
-            .filter(child => child.mimeType === "application/vnd.google-apps.folder")
-            .map((child) => (
-              <SidebarTreeItem 
-                key={child.id} 
-                folder={child} 
-                level={level + 1} 
-                currentFolder={currentFolder} 
-                onFolderChange={onFolderChange} 
-                autoExpandPath={autoExpandPath}
-              />
+          {children.map((child) => (
+            <SidebarTreeItem 
+              key={child.id} 
+              folder={child} 
+              level={level + 1} 
+              currentFolder={currentFolder} 
+              onFolderChange={onFolderChange} 
+              autoExpandPath={autoExpandPath}
+            />
           ))}
         </div>
       )}
