@@ -62,8 +62,13 @@ export async function searchFiles(
 ): Promise<DriveFile[]> {
   const drive = getDriveClient(accessToken);
 
+  let q = "trashed = false";
+  if (query) {
+    q += ` and name contains '${query.replace(/'/g, "\\'")}'`;
+  }
+
   const response = await drive.files.list({
-    q: `trashed = false and name contains '${query.replace(/'/g, "\\'")}'`,
+    q,
     pageSize,
     orderBy: "modifiedTime desc",
     fields: `files(${DRIVE_FILE_FIELDS})`,

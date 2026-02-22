@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   const folderId = searchParams.get("folderId") ?? "root";
   const query = searchParams.get("q") ?? "";
   const pageToken = searchParams.get("pageToken") ?? undefined;
+  const orderBy = searchParams.get("orderBy") ?? undefined;
 
   try {
     if (query) {
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
     const result = await listFiles(session.accessToken, {
       folderId,
       pageToken,
+      orderBy,
     });
 
     return NextResponse.json(result);

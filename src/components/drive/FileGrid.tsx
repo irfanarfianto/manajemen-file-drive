@@ -165,7 +165,7 @@ export function FileGrid({
   onFolderOpen,
   onFileAction,
 }: FileGridProps) {
-  if (loading && files.length === 0) {
+  if (loading) {
     return (
       <div className={cn(
         viewMode === "grid" 
@@ -199,14 +199,21 @@ export function FileGrid({
   }
 
   if (files.length === 0) {
+    // If it's a search result (indicated by the parent component or by the error context)
+    const isSearching = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("q");
+
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-center px-4 border-2 border-dashed rounded-3xl bg-muted/5">
+      <div className="flex flex-col items-center justify-center py-24 text-center px-4 border-2 border-dashed rounded-3xl bg-muted/5 animate-in fade-in zoom-in duration-300">
         <div className="w-20 h-20 rounded-full bg-primary/5 flex items-center justify-center mb-6">
           <Folder className="h-10 w-10 text-primary/40" />
         </div>
-        <h3 className="text-xl font-bold mb-2">Folder ini kosong</h3>
+        <h3 className="text-xl font-bold mb-2">
+          {isSearching ? "Tidak ditemukan hasil" : "Folder ini kosong"}
+        </h3>
         <p className="text-muted-foreground max-w-sm">
-          Belum ada file atau folder di sini. Gunakan tombol di sidebar untuk mulai menambahkan konten.
+          {isSearching 
+            ? "Kami tidak menemukan file yang sesuai dengan kata kunci tersebut. Coba kata kunci lain." 
+            : "Belum ada file atau folder di sini. Gunakan tombol di sidebar untuk mulai menambahkan konten."}
         </p>
       </div>
     );

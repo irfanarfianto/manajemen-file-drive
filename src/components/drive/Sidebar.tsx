@@ -1,22 +1,20 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useSession, signOut } from "next-auth/react";
 import { 
   FolderPlus, 
   Upload, 
   HardDrive, 
-  LogOut,
-  Loader2,
   ChevronRight,
   Folder,
   GraduationCap,
   SquareKanban,
-  Cloud
+  Cloud,
+  Layout,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { FileIcon } from "@/components/ui/FileIcon";
@@ -220,9 +218,6 @@ export function Sidebar({
   onUpload,
   onThesisTemplate,
 }: SidebarProps) {
-  const { data: session } = useSession();
-  const [signingOut, setSigningOut] = useState(false);
-  
   const [rootFolders, setRootFolders] = useState<DriveNode[]>([]);
   const [rootLoading, setRootLoading] = useState(false);
   const [autoExpandPath, setAutoExpandPath] = useState<string[]>([]);
@@ -269,12 +264,12 @@ export function Sidebar({
       ? Math.min((quota.usage / quota.limit) * 100, 100)
       : 0;
 
-  const handleSignOut = async () => {
-    setSigningOut(true);
-    await signOut({ callbackUrl: "/login" });
-  };
-
   const navItems = [
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: <Layout className="h-4 w-4" />,
+    },
     {
       id: "root",
       label: "My Drive",
@@ -412,35 +407,6 @@ export function Sidebar({
              <span>{quota ? formatBytes(quota.usage) : "0 MB"} terpakai</span>
              <span>{quota?.limit ? formatBytes(quota.limit) : "Tanpa batas"}</span>
           </div>
-        </div>
-
-        <Separator className="mb-4 opacity-50" />
-
-        <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9 border-2 border-background shadow-sm hover:scale-105 transition-transform flex-shrink-0">
-            <AvatarImage src={session?.user?.image ?? ""} />
-            <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-              {session?.user?.name?.charAt(0) ?? "U"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold truncate text-foreground leading-tight">{session?.user?.name}</p>
-            <p className="text-[10px] text-muted-foreground truncate">{session?.user?.email}</p>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            title="Keluar"
-          >
-            {signingOut ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <LogOut className="h-4 w-4" />
-            )}
-          </Button>
         </div>
       </div>
     </aside>

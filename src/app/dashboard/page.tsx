@@ -2,16 +2,21 @@
 
 import { useState, useCallback, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { 
-  Search, 
-  X, 
-  LayoutGrid, 
-  List, 
+import {
+  Search,
+  X,
+  LayoutGrid,
+  List,
   Home,
   Menu,
   Trash2,
-  FileText
+  FileText,
+  LogOut,
+  Loader2
 } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import { Sidebar } from "@/components/drive/Sidebar";
 import { FileGrid } from "@/components/drive/FileGrid";
 import { KanbanBoard } from "@/components/drive/KanbanBoard";
@@ -25,6 +30,7 @@ import {
   RevisionsModal,
   ThesisTemplateModal
 } from "@/components/drive/Modals";
+import { DashboardOverview } from "@/components/drive/DashboardOverview";
 import { useDriveFiles, useDriveQuota, useDriveSearch } from "@/hooks/useDrive";
 import type { DriveFile } from "@/lib/drive-types";
 import { Input } from "@/components/ui/input";
@@ -51,7 +57,7 @@ export default function DashboardPage() {
 function DashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialFolder = searchParams.get("folderId") ?? "root";
+  const initialFolder = searchParams.get("folderId") ?? "dashboard";
   const [currentFolder, setCurrentFolder] = useState(initialFolder);
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -66,20 +72,24 @@ function DashboardInner() {
     | { type: "thesisTemplate" }
     | null
   >(null);
+  const { data: session } = useSession();
   const [isUploading, setIsUploading] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
   const isKanbanView = currentFolder === "kanban";
+  const isDashboardView = currentFolder === "dashboard";
 
-  const { files, loading, error, refetch } = useDriveFiles({
+  const { files, loading: filesLoading, error: filesError, refetch } = useDriveFiles({
     folderId: currentFolder,
-    enabled: !searchQuery && !isKanbanView,
+    enabled: !searchQuery && !isKanbanView && !isDashboardView,
   });
   const { quota, refetch: refetchQuota } = useDriveQuota();
-  const { results: searchResults, loading: searchLoading } = useDriveSearch(searchQuery);
+  const { results: searchResults, loading: searchLoading, error: searchError } = useDriveSearch(searchQuery);
 
   const displayFiles = searchQuery ? searchResults : files;
-  const isLoading = searchQuery ? searchLoading : loading;
+  const isLoading = searchQuery ? searchLoading : filesLoading;
+  const currentError = searchQuery ? searchError : filesError;
 
   const handleFolderOpen = useCallback((folderId: string, folderName: string) => {
     setBreadcrumbs((prev) => [...prev, { id: folderId, name: folderName }]);
@@ -99,7 +109,7 @@ function DashboardInner() {
 
   // Fetch breadcrumbs whenever current folder changes (e.g. from sidebar or direct link)
   useEffect(() => {
-    if (currentFolder === "root" || currentFolder === "kanban") {
+    if (currentFolder === "root" || currentFolder === "kanban" || currentFolder === "dashboard") {
       setBreadcrumbs([]);
       return;
     }
@@ -240,6 +250,11 @@ function DashboardInner() {
     }
   };
 
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await signOut({ callbackUrl: "/login" });
+  };
+
   const handleBatchDelete = () => {
     const filesToDelete = displayFiles.filter(f => selectedFileIds.has(f.id));
     if (filesToDelete.length > 0) {
@@ -356,46 +371,112 @@ function DashboardInner() {
                   <X className="h-4 w-4" />
                   <span className="hidden sm:inline-block">Batal</span>
                 </Button>
-                <div className="w-px h-6 bg-border mx-2"></div>
+                 <div className="w-px h-6 bg-border mx-2"></div>
               </div>
             )}
 
-            {/* View toggle */}
-            <div className="flex items-center bg-muted/40 p-1 rounded-xl">
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="sm"
-              className={cn(
-                "h-8 px-3 rounded-lg shadow-none",
-                viewMode === "grid" ? "bg-card shadow-sm" : "hover:bg-muted"
-              )}
-              onClick={() => setViewMode("grid")}
-            >
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Grid
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="sm"
-              className={cn(
-                "h-8 px-3 rounded-lg shadow-none",
-                viewMode === "list" ? "bg-card shadow-sm" : "hover:bg-muted"
-              )}
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4 mr-2" />
-              List
-            </Button>
-          </div>
+            {/* User Profile & Actions */}
+            <div className="flex items-center gap-3 ml-2 border-l pl-4">
+              <Avatar className="h-9 w-9 border border-border/50 shadow-sm hover:ring-4 hover:ring-primary/5 transition-all shrink-0">
+                <AvatarImage src={session?.user?.image ?? ""} alt={session?.user?.name ?? "User"} />
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                  {session?.user?.name?.charAt(0) ?? "U"}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="hidden md:flex flex-col min-w-0">
+                <p className="text-xs font-bold truncate text-foreground leading-none mb-1">
+                  {session?.user?.name}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate leading-none">
+                  {session?.user?.email}
+                </p>
+              </div>
+
+              <div className="w-px h-4 bg-border/40 mx-1 hidden md:block"></div>
+
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0 rounded-xl"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                title="Keluar"
+              >
+                {signingOut ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <LogOut className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
         </header>
 
-        {/* Content Area */}
-        {isKanbanView ? (
+        {/* Content Area - Prioritize search results if searchQuery exists */}
+        {searchQuery ? (
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10">
+            {/* Title & Count (Always show for search results) */}
+            <div className="flex items-end justify-between mb-8">
+              <div className="space-y-1">
+                <h1 className="text-3xl font-extrabold tracking-tight">
+                  Hasil pencarian "{searchQuery}"
+                </h1>
+                {!isLoading && (
+                  <p className="text-sm text-muted-foreground flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5" />
+                    {displayFiles.length} item ditemukan
+                  </p>
+                )}
+              </div>
+
+              {/* View toggle for search results */}
+              <div className="flex items-center bg-muted/40 p-1 rounded-xl">
+                <Button
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "h-8 px-3 rounded-lg shadow-none",
+                    viewMode === "grid" ? "bg-card shadow-sm" : "hover:bg-muted"
+                  )}
+                  onClick={() => setViewMode("grid")}
+                >
+                  <LayoutGrid className="h-4 w-4 mr-2" />
+                  Grid
+                </Button>
+                <Button
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "h-8 px-3 rounded-lg shadow-none",
+                    viewMode === "list" ? "bg-card shadow-sm" : "hover:bg-muted"
+                  )}
+                  onClick={() => setViewMode("list")}
+                >
+                  <List className="h-4 w-4 mr-2" />
+                  List
+                </Button>
+              </div>
+            </div>
+
+            <FileGrid
+              files={displayFiles}
+              loading={isLoading}
+              error={currentError}
+              viewMode={viewMode}
+              selectedFiles={selectedFileIds}
+              onToggleSelect={handleToggleSelect}
+              onToggleAll={handleToggleAll}
+              onFolderOpen={handleFolderOpen}
+              onFileAction={handleFileAction}
+            />
+          </div>
+        ) : isKanbanView ? (
           <KanbanBoard />
         ) : (
           <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10">
             {/* Breadcrumb */}
-            {!searchQuery && (
+            {!isDashboardView && (
               <Breadcrumb className="mb-6">
                 <BreadcrumbList>
                   <BreadcrumbItem>
@@ -412,7 +493,7 @@ function DashboardInner() {
                       <BreadcrumbSeparator />
                       <BreadcrumbItem>
                         {i === breadcrumbs.length - 1 ? (
-                          <BreadcrumbPage className="font-semibold text-foreground">
+                           <BreadcrumbPage className="font-semibold text-foreground">
                             {crumb.name}
                           </BreadcrumbPage>
                         ) : (
@@ -431,36 +512,74 @@ function DashboardInner() {
             )}
 
             {/* Title & Count */}
-            <div className="flex items-end justify-between mb-8">
-              <div className="space-y-1">
-                <h1 className="text-3xl font-extrabold tracking-tight">
-                  {searchQuery
-                    ? `Hasil pencarian "${searchQuery}"`
-                    : breadcrumbs.length > 0
-                    ? breadcrumbs[breadcrumbs.length - 1].name
-                    : "My Drive"}
-                </h1>
-                {!isLoading && (
-                  <p className="text-sm text-muted-foreground flex items-center gap-2">
-                    <FileText className="h-3.5 w-3.5" />
-                    {displayFiles.length} item ditemukan
-                  </p>
-                )}
-              </div>
-            </div>
+            {!isDashboardView && (
+              <div className="flex items-end justify-between mb-8">
+                <div className="space-y-1">
+                  <h1 className="text-3xl font-extrabold tracking-tight">
+                    {breadcrumbs.length > 0
+                      ? breadcrumbs[breadcrumbs.length - 1].name
+                      : "My Drive"}
+                  </h1>
+                  {!isLoading && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5" />
+                      {displayFiles.length} item ditemukan
+                    </p>
+                  )}
+                </div>
 
-            {/* File grid */}
-            <FileGrid
-              files={displayFiles}
-              loading={isLoading}
-              error={error}
-              viewMode={viewMode}
-              selectedFiles={selectedFileIds}
-              onToggleSelect={handleToggleSelect}
-              onToggleAll={handleToggleAll}
-              onFolderOpen={handleFolderOpen}
-              onFileAction={handleFileAction}
-            />
+                {/* View toggle moved here for better alignment with content */}
+                <div className="flex items-center bg-muted/40 p-1 rounded-xl">
+                  <Button
+                    variant={viewMode === "grid" ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn(
+                      "h-8 px-3 rounded-lg shadow-none",
+                      viewMode === "grid" ? "bg-card shadow-sm" : "hover:bg-muted"
+                    )}
+                    onClick={() => setViewMode("grid")}
+                  >
+                    <LayoutGrid className="h-4 w-4 mr-2" />
+                    Grid
+                  </Button>
+                  <Button
+                    variant={viewMode === "list" ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn(
+                      "h-8 px-3 rounded-lg shadow-none",
+                      viewMode === "list" ? "bg-card shadow-sm" : "hover:bg-muted"
+                    )}
+                    onClick={() => setViewMode("list")}
+                  >
+                    <List className="h-4 w-4 mr-2" />
+                    List
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* File grid or Dashboard Overview */}
+            {isDashboardView ? (
+              <DashboardOverview 
+                onFolderOpen={handleFolderOpen}
+                onKanbanOpen={() => setCurrentFolder("kanban")}
+                onNewFolder={() => setActiveModal({ type: "newFolder" })}
+                onUpload={() => document.getElementById("file-upload-input")?.click()}
+                onViewFile={navigateToPreview}
+              />
+            ) : (
+              <FileGrid
+                files={displayFiles}
+                loading={isLoading}
+                error={currentError}
+                viewMode={viewMode}
+                selectedFiles={selectedFileIds}
+                onToggleSelect={handleToggleSelect}
+                onToggleAll={handleToggleAll}
+                onFolderOpen={handleFolderOpen}
+                onFileAction={handleFileAction}
+              />
+            )}
           </div>
         )}
       </main>

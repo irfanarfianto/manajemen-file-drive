@@ -6,6 +6,7 @@ import type { DriveFile } from "@/lib/drive-types";
 interface UseDriveFilesOptions {
   folderId?: string;
   enabled?: boolean;
+  orderBy?: string;
 }
 
 interface UseDriveFilesResult {
@@ -21,7 +22,7 @@ interface UseDriveFilesResult {
 export function useDriveFiles(
   options: UseDriveFilesOptions = {}
 ): UseDriveFilesResult {
-  const { folderId = "root", enabled = true } = options;
+  const { folderId = "root", enabled = true, orderBy } = options;
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export function useDriveFiles(
       try {
         const params = new URLSearchParams({ folderId });
         if (pageToken) params.set("pageToken", pageToken);
+        if (orderBy) params.set("orderBy", orderBy);
 
         const res = await fetch(`/api/drive/files?${params}`, {
           signal: abortRef.current.signal,
