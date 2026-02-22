@@ -31,7 +31,12 @@ export async function listFiles(
     orderBy = "folder,modifiedTime desc",
   } = options;
 
-  let q = `trashed = false and '${folderId}' in parents`;
+  let q = "";
+  if (folderId === "trash") {
+    q = "trashed = true";
+  } else {
+    q = `trashed = false and '${folderId}' in parents`;
+  }
   if (query) {
     q += ` and name contains '${query.replace(/'/g, "\\'")}'`;
   }
