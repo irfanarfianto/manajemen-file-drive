@@ -8,7 +8,8 @@ import {
   Loader2,
   FileText,
   ShieldCheck,
-  Cloud
+  Cloud,
+  Boxes
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,18 +26,7 @@ function GoogleIcon() {
   );
 }
 
-function DriveIcon() {
-  return (
-    <svg width="40" height="40" viewBox="0 0 87.3 78" fill="none" aria-hidden="true">
-      <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L28 48.95H0c0 1.55.4 3.1 1.2 4.5l5.4 13.4z" fill="#0066DA" />
-      <path d="M43.65 24.15L29.3 1.2C27.95.4 26.4 0 24.85 0c-1.55 0-3.1.4-4.45 1.2l-14.8 25.35 14.35 24.8 24.6-27.2z" fill="#00AC47" />
-      <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.3c.8-1.4 1.2-2.95 1.2-4.5H59.3L73.55 76.8z" fill="#EA4335" />
-      <path d="M43.65 24.15L57.3 1.2C55.95.4 54.4 0 52.85 0H34.45c-1.55 0-3.1.4-4.45 1.2l14.35 24.8-.7-1.85z" fill="#00832D" />
-      <path d="M59.3 48.95H28L13.65 76.8c1.35.8 2.9 1.2 4.45 1.2h50.1c1.55 0 3.1-.4 4.45-1.2L59.3 48.95z" fill="#2684FC" />
-      <path d="M87.3 52.95c0-1.55-.4-3.1-1.2-4.5l-14.7-25.4-14 24.2 14.15 24.55 15.75-14.85z" fill="#FFBA00" />
-    </svg>
-  );
-}
+
 
 function FeatureItem({ icon: Icon, text }: { icon: React.ComponentType<{ className?: string }>; text: string }) {
   return (
@@ -93,12 +83,12 @@ function LoginContent() {
         
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex p-4 rounded-3xl bg-primary/5 mb-6 ring-1 ring-primary/10">
-            <DriveIcon />
+          <div className="inline-flex w-20 h-20 rounded-[2rem] bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 mb-6 shadow-2xl shadow-purple-500/30 items-center justify-center rotate-3 hover:rotate-6 transition-transform">
+            <Boxes className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-3xl font-black tracking-tight mb-3">Skripsi Drive</h1>
+          <h1 className="text-3xl font-black tracking-tight mb-3">Drive Workspace</h1>
           <p className="text-muted-foreground leading-relaxed">
-            Kelola semua file tugas dan skripsi kamu dalam satu dashboard yang cepat dan modern
+            Kelola semua file tugas, catatan, dan proyek kamu dalam satu dashboard yang cepat, modern, dan terintegrasi Google Drive
           </p>
         </div>
 

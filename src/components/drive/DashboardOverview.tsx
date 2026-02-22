@@ -36,7 +36,7 @@ export function DashboardOverview({
 }: DashboardOverviewProps) {
   const { data: session } = useSession();
   const { quota, loading: quotaLoading } = useDriveQuota();
-  const { data: kanbanData, loading: kanbanLoading } = useKanban();
+  const { columns: kanbanColumns, loading: kanbanLoading } = useKanban();
   
   // Ambil file terbaru secara global
   const { files: recentFiles, loading: recentLoading } = useDriveFiles({
@@ -54,7 +54,7 @@ export function DashboardOverview({
     ? (quota.usage / quota.limit) * 100 
     : 0;
 
-  const kanbanSummary = kanbanData?.columns.map(col => ({
+  const kanbanSummary = kanbanColumns.map(col => ({
     title: col.title,
     count: col.tasks.length,
     id: col.id
@@ -74,16 +74,6 @@ export function DashboardOverview({
             <p className="text-muted-foreground">
               Siap buat progres kuliah kamu hari ini? Semangat ya!
             </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={onUpload} className="rounded-xl shadow-lg shadow-primary/20">
-              <Plus className="h-4 w-4 mr-2" />
-              Upload Tugas
-            </Button>
-            <Button variant="outline" onClick={onNewFolder} className="rounded-xl">
-              <Folder className="h-4 w-4 mr-2" />
-              Folder Baru
-            </Button>
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { batchDeleteFiles } from "@/lib/google/drive";
+import { batchTrashFiles, batchPermanentDeleteFiles } from "@/lib/google/drive";
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json();
   const fileIds = body.fileIds;
+  const permanent = body.permanent;
 
   if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
     return NextResponse.json(
@@ -20,7 +21,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await batchDeleteFiles(session.accessToken, fileIds);
+    if (permanent) {
+      await batchPermanentDeleteFiles(session.accessToken, fileIds);
+    } else {
+      await batchTrashFiles(session.accessToken, fileIds);
+    }
     return NextResponse.json({ success: true, count: fileIds.length });
   } catch (error) {
     console.error("[API /drive/batch-delete]", error);

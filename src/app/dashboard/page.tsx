@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   X,
@@ -13,6 +13,8 @@ import {
   LogOut,
   Loader2,
   FileText,
+  RefreshCcw,
+  ShieldAlert,
 } from "lucide-react";
 import { Sidebar } from "@/components/drive/Sidebar";
 import { FileGrid } from "@/components/drive/FileGrid";
@@ -57,12 +59,13 @@ function DashboardInner() {
   const initialFolder = searchParams.get("folderId") ?? "dashboard";
   const [currentFolder, setCurrentFolder] = useState(initialFolder);
   const [breadcrumbs, setBreadcrumbs] = useState<{ id: string; name: string }[]>([]);
+  const [isTrashMode, setIsTrashMode] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeModal, setActiveModal] = useState<
     | { type: "newFolder" }
     | { type: "rename"; file: DriveFile }
-    | { type: "delete"; files: DriveFile[] }
+    | { type: "delete"; files: DriveFile[]; permanent?: boolean }
     | { type: "revisions"; file: DriveFile }
     | { type: "file-revisions"; file: DriveFile }
     | { type: "thesisTemplate" }
@@ -76,8 +79,11 @@ function DashboardInner() {
   const isKanbanView = currentFolder === "kanban";
   const isDashboardView = currentFolder === "dashboard";
 
-  const currentFolderName = isDashboardView ? "My Drive" : 
-    (breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : "My Drive");
+  const currentFolderName = isDashboardView ? "Drive" : 
+    currentFolder === "root" ? "My Drive" :
+    currentFolder === "trash" ? "Trash" :
+    currentFolder === "kanban" ? "Drive" :
+    (breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : "Drive");
 
   const { files, loading: filesLoading, error: filesError, refetch } = useDriveFiles({
     folderId: currentFolder,
@@ -93,24 +99,83 @@ function DashboardInner() {
   const handleFolderOpen = useCallback((folderId: string, folderName: string) => {
     setBreadcrumbs((prev) => [...prev, { id: folderId, name: folderName }]);
     setCurrentFolder(folderId);
+    setSelectedFileIds(new Set());
+    // if we opened a folder from a known context, the context stays the same
   }, []);
 
   const handleBreadcrumb = (index: number) => {
     if (index === -1) {
       setBreadcrumbs([]);
-      setCurrentFolder("dashboard");
+      if (isTrashMode) {
+        setCurrentFolder("trash");
+      } else {
+        setCurrentFolder("dashboard");
+      }
+      setSelectedFileIds(new Set());
       return;
     }
     const newBreadcrumbs = breadcrumbs.slice(0, index + 1);
     setBreadcrumbs(newBreadcrumbs);
     setCurrentFolder(newBreadcrumbs[index].id);
+    setSelectedFileIds(new Set());
   };
 
-  const handleFileAction = (file: DriveFile, action: string) => {
+
+
+  const handleFolderChange = useCallback((id: string) => {
+    setCurrentFolder(id);
+    setSelectedFileIds(new Set());
+    if (id === "trash") setIsTrashMode(true);
+    else if (id === "dashboard" || id === "root" || id === "kanban") setIsTrashMode(false);
+    
+    if (id === "dashboard" || id === "kanban" || id === "trash" || id === "root") {
+      setBreadcrumbs([]);
+    }
+  }, []);
+
+  // Sync breadcrumbs for deep folder navigation (from sidebar tree or direct ID)
+  useEffect(() => {
+    if (currentFolder === "dashboard" || currentFolder === "kanban" || currentFolder === "trash" || currentFolder === "root") {
+      return;
+    }
+
+    const fetchPath = async () => {
+      try {
+        const res = await fetch(`/api/drive/file-path?fileId=${currentFolder}`);
+        const data = await res.json();
+        if (data.folderPath) {
+          setBreadcrumbs(data.folderPath);
+          setIsTrashMode(!!data.isTrashed);
+        }
+      } catch (err) {
+        console.error("Failed to fetch path for breadcrumbs:", err);
+      }
+    };
+    fetchPath();
+  }, [currentFolder]);
+
+  const handleFileAction = async (file: DriveFile, action: string) => {
     if (action === "rename") {
       setActiveModal({ type: "rename", file });
     } else if (action === "delete") {
       setActiveModal({ type: "delete", files: [file] });
+    } else if (action === "permanent-delete") {
+      setActiveModal({ type: "delete", files: [file], permanent: true });
+    } else if (action === "restore") {
+      const promise = fetch("/api/drive/file", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId: file.id, restore: true }),
+      }).then((res) => {
+        if (!res.ok) throw new Error("Gagal memulihkan file");
+        refetch();
+        return res.json();
+      });
+      toast.promise(promise, {
+        loading: "Memulihkan file...",
+        success: "File berhasil dipulihkan",
+        error: (err) => err.message,
+      });
     } else if (action === "preview") {
       const params = new URLSearchParams({
         fileId: file.id,
@@ -158,8 +223,38 @@ function DashboardInner() {
   const handleBatchDelete = () => {
     const selectedFiles = displayFiles.filter((f) => selectedFileIds.has(f.id));
     if (selectedFiles.length > 0) {
-      setActiveModal({ type: "delete", files: selectedFiles });
+      if (currentFolder === "trash") {
+        setActiveModal({ type: "delete", files: selectedFiles, permanent: true });
+      } else {
+        setActiveModal({ type: "delete", files: selectedFiles });
+      }
     }
+  };
+
+  const handleBatchRestore = async () => {
+    const selectedFiles = displayFiles.filter((f) => selectedFileIds.has(f.id));
+    if (selectedFiles.length === 0) return;
+
+    const promise = Promise.all(
+      selectedFiles.map((file) =>
+        fetch("/api/drive/file", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileId: file.id, restore: true }),
+        }).then((res) => {
+          if (!res.ok) throw new Error("Gagal");
+        })
+      )
+    ).then(() => {
+      clearSelection();
+      refetch();
+    });
+
+    toast.promise(promise, {
+      loading: "Memulihkan file...",
+      success: `Berhasil memulihkan ${selectedFiles.length} item`,
+      error: "Gagal memulihkan beberapa file",
+    });
   };
 
   const handleUpload = useCallback(() => setActiveModal({ type: "upload" }), []);
@@ -176,7 +271,8 @@ function DashboardInner() {
     <div className="flex h-screen bg-background overflow-hidden font-sans">
       <Sidebar 
         currentFolder={currentFolder} 
-        onFolderChange={setCurrentFolder}
+        isTrashMode={isTrashMode}
+        onFolderChange={handleFolderChange}
         quota={quota}
         onUpload={handleUpload}
         onNewFolder={handleNewFolder}
@@ -200,7 +296,8 @@ function DashboardInner() {
                 <SheetTitle className="sr-only">Menu Navigasi</SheetTitle>
                 <Sidebar 
                   currentFolder={currentFolder} 
-                  onFolderChange={setCurrentFolder}
+                  isTrashMode={isTrashMode}
+                  onFolderChange={handleFolderChange}
                   quota={quota}
                   onUpload={handleUpload}
                   onNewFolder={handleNewFolder}
@@ -240,15 +337,40 @@ function DashboardInner() {
                 <span className="text-sm font-medium text-muted-foreground mr-2 hidden sm:inline-block">
                   {selectedFileIds.size} terpilih
                 </span>
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  className="h-8 gap-2"
-                  onClick={handleBatchDelete}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline-block">Hapus</span>
-                </Button>
+                
+                {currentFolder === "trash" ? (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 gap-2 bg-background hover:bg-background/80"
+                      onClick={handleBatchRestore}
+                    >
+                      <RefreshCcw className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline-block">Pulihkan</span>
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="h-8 gap-2"
+                      onClick={handleBatchDelete}
+                    >
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline-block">Hapus Permanen</span>
+                    </Button>
+                  </>
+                ) : (
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="h-8 gap-2"
+                    onClick={handleBatchDelete}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline-block">Hapus</span>
+                  </Button>
+                )}
+                
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -299,7 +421,7 @@ function DashboardInner() {
 
         {/* Content Area - Prioritize search results if searchQuery exists */}
         {searchQuery ? (
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-10">
             {/* Title & Count (Always show for search results) */}
             <div className="flex items-end justify-between mb-8">
               <div className="space-y-1">
@@ -329,78 +451,90 @@ function DashboardInner() {
             />
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-10">
+          <div className="flex-1 overflow-y-auto p-4 lg:p-10">
             {/* View Switching Title & Breadcrumbs */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-              <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-extrabold tracking-tight">
-                  {isKanbanView ? "Manajemen Tugas" : 
-                   isDashboardView ? "Dashboard Utama" : 
-                   breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : "Semua File"}
-                </h1>
-                <Breadcrumb className="mb-6">
-                  <BreadcrumbList>
-                    <BreadcrumbItem>
-                      <BreadcrumbLink 
-                        onClick={() => handleBreadcrumb(-1)}
-                        className="cursor-pointer flex items-center gap-1 hover:text-primary transition-colors"
-                      >
-                        <Home className="h-3.5 w-3.5" />
-                        Drive
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    {breadcrumbs.map((crumb, i) => (
-                      <div key={crumb.id} className="flex items-center gap-2">
-                        <BreadcrumbSeparator />
-                        <BreadcrumbItem>
-                          {i === breadcrumbs.length - 1 ? (
-                            <BreadcrumbPage className="font-semibold text-primary">
-                              {crumb.name}
-                            </BreadcrumbPage>
+            {!isDashboardView && (
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col gap-1">
+                  <h1 className="text-3xl font-extrabold tracking-tight">
+                    {isKanbanView ? "Manajemen Tugas" : 
+                     currentFolder === "root" ? "My Drive" :
+                     currentFolder === "trash" ? "Trash" :
+                     breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : "Semua File"}
+                  </h1>
+                  <Breadcrumb className="mb-6">
+                    <BreadcrumbList>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink 
+                          onClick={() => handleBreadcrumb(-1)}
+                          className="cursor-pointer flex items-center gap-1 hover:text-primary transition-colors"
+                        >
+                          {isTrashMode ? (
+                            <>
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Trash
+                            </>
                           ) : (
-                            <BreadcrumbLink 
-                              onClick={() => handleBreadcrumb(i)}
-                              className="cursor-pointer hover:text-primary transition-colors"
-                            >
-                              {crumb.name}
-                            </BreadcrumbLink>
+                            <>
+                              <Home className="h-3.5 w-3.5" />
+                              Drive
+                            </>
                           )}
-                        </BreadcrumbItem>
-                      </div>
-                    ))}
-                  </BreadcrumbList>
-                </Breadcrumb>
-              </div>
-
-              {!isKanbanView && !isDashboardView && (
-                <div className="flex items-center gap-2 bg-muted/30 p-1.5 rounded-2xl border border-border/50">
-                  <Button
-                    variant={viewMode === "grid" ? "secondary" : "ghost"}
-                    size="sm"
-                    className={cn(
-                      "h-9 px-3 gap-2 rounded-xl transition-all font-semibold",
-                      viewMode === "grid" && "shadow-sm"
-                    )}
-                    onClick={() => setViewMode("grid")}
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                    Grid
-                  </Button>
-                  <Button
-                    variant={viewMode === "list" ? "secondary" : "ghost"}
-                    size="sm"
-                    className={cn(
-                      "h-9 px-3 gap-2 rounded-xl transition-all font-semibold",
-                      viewMode === "list" && "shadow-sm"
-                    )}
-                    onClick={() => setViewMode("list")}
-                  >
-                    <List className="h-4 w-4" />
-                    List
-                  </Button>
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                      {breadcrumbs.map((crumb, i) => (
+                        <div key={crumb.id} className="flex items-center gap-2">
+                          <BreadcrumbSeparator />
+                          <BreadcrumbItem>
+                            {i === breadcrumbs.length - 1 ? (
+                              <BreadcrumbPage className="font-semibold text-primary">
+                                {crumb.name}
+                              </BreadcrumbPage>
+                            ) : (
+                              <BreadcrumbLink 
+                                onClick={() => handleBreadcrumb(i)}
+                                className="cursor-pointer hover:text-primary transition-colors"
+                              >
+                                {crumb.name}
+                              </BreadcrumbLink>
+                            )}
+                          </BreadcrumbItem>
+                        </div>
+                      ))}
+                    </BreadcrumbList>
+                  </Breadcrumb>
                 </div>
-              )}
-            </div>
+
+                {!isKanbanView && (
+                  <div className="flex items-center gap-2 bg-muted/30 p-1.5 rounded-2xl border border-border/50">
+                    <Button
+                      variant={viewMode === "grid" ? "secondary" : "ghost"}
+                      size="sm"
+                      className={cn(
+                        "h-9 px-3 gap-2 rounded-xl transition-all font-semibold",
+                        viewMode === "grid" && "shadow-sm"
+                      )}
+                      onClick={() => setViewMode("grid")}
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                      Grid
+                    </Button>
+                    <Button
+                      variant={viewMode === "list" ? "secondary" : "ghost"}
+                      size="sm"
+                      className={cn(
+                        "h-9 px-3 gap-2 rounded-xl transition-all font-semibold",
+                        viewMode === "list" && "shadow-sm"
+                      )}
+                      onClick={() => setViewMode("list")}
+                    >
+                      <List className="h-4 w-4" />
+                      List
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {isKanbanView ? (
               <KanbanBoard />
@@ -460,6 +594,7 @@ function DashboardInner() {
           open={true}
           onOpenChange={(open) => !open && setActiveModal(null)}
           files={activeModal.files}
+          isPermanent={(activeModal as { type: "delete", files: DriveFile[], permanent?: boolean }).permanent}
           onDeleted={() => {
             clearSelection();
             refetch();

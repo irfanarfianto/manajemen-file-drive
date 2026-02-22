@@ -19,6 +19,7 @@ interface DeleteModalProps {
   onOpenChange: (open: boolean) => void;
   files: DriveFile[];
   onDeleted: () => void;
+  isPermanent?: boolean;
 }
 
 export function DeleteModal({
@@ -26,6 +27,7 @@ export function DeleteModal({
   onOpenChange,
   files,
   onDeleted,
+  isPermanent,
 }: DeleteModalProps) {
   const [loading, setLoading] = useState(false);
 
@@ -35,12 +37,13 @@ export function DeleteModal({
       const res = await fetch("/api/drive/batch-delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileIds: files.map(f => f.id) }),
+        body: JSON.stringify({ fileIds: files.map(f => f.id), permanent: isPermanent }),
       });
-      if (!res.ok) throw new Error("Gagal menghapus file");
-      toast.success(`Berhasil menghapus ${files.length} item ke Trash`);
+      if (!res.ok) throw new Error(isPermanent ? "Gagal menghapus file secara permanen" : "Gagal menghapus file");
+      toast.success(isPermanent ? `Berhasil menghapus permanen ${files.length} item` : `Berhasil memindahkan ${files.length} item ke Trash`);
       onDeleted();
       onOpenChange(false);
+      setLoading(false);
     } catch (err) {
       toast.error((err as Error).message);
       setLoading(false);
@@ -51,9 +54,12 @@ export function DeleteModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Hapus ke Trash</DialogTitle>
+          <DialogTitle>{isPermanent ? "Hapus Permanen" : "Hapus ke Trash"}</DialogTitle>
           <DialogDescription>
-            Yakin ingin memindahkan {files.length > 1 ? <span className="font-bold">{files.length} item</span> : <span className="font-bold text-foreground">&ldquo;{files[0]?.name}&rdquo;</span>} ke Trash? Kamu masih bisa memulihkannya nanti di Google Drive.
+            {isPermanent 
+              ? <>Yakin ingin menghapus permanen {files.length > 1 ? <span className="font-bold">{files.length} item</span> : <span className="font-bold text-foreground">&ldquo;{files[0]?.name}&rdquo;</span>}? Tindakan ini tidak dapat dibatalkan.</>
+              : <>Yakin ingin memindahkan {files.length > 1 ? <span className="font-bold">{files.length} item</span> : <span className="font-bold text-foreground">&ldquo;{files[0]?.name}&rdquo;</span>} ke Trash? Kamu masih bisa memulihkannya nanti di Google Drive.</>
+            }
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-4">

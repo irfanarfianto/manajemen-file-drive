@@ -117,7 +117,7 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
       <div className="px-5 pt-5 pb-4 border-b bg-card/60 backdrop-blur-md flex-shrink-0">
         <div className="flex items-center gap-2 mb-1">
           <ClipboardList className="h-4 w-4 text-primary flex-shrink-0" />
-          <h3 className="font-bold text-sm">Daftar Revisi</h3>
+          <h3 className="font-bold text-sm">Catatan</h3>
           {saving && <Save className="h-3.5 w-3.5 text-muted-foreground animate-pulse ml-auto" />}
         </div>
         <p className="text-[11px] text-muted-foreground truncate">{fileName}</p>
@@ -137,7 +137,7 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
             </div>
             {allDone && (
               <p className="text-[11px] text-green-500 font-medium flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Semua revisi selesai! 🎉
+                <CheckCircle2 className="h-3 w-3" /> Semua catatan selesai! 🎉
               </p>
             )}
           </div>
@@ -156,7 +156,7 @@ function RevisionPanel({ fileId, fileName }: { fileId: string; fileName: string 
               <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
                 <ClipboardList className="h-6 w-6 text-muted-foreground/30" />
               </div>
-              <p className="text-xs text-muted-foreground">Belum ada revisi.<br />Tambahkan di bawah.</p>
+              <p className="text-xs text-muted-foreground">Belum ada catatan.<br />Tambahkan di bawah.</p>
             </div>
           ) : (
             sorted.map((item) => (
@@ -261,7 +261,7 @@ function PreviewPageInner() {
     "application/vnd.oasis.opendocument.presentation",
   ].includes(mimeType);
   const canPreviewInFrame = isPdf || isGoogleDoc || isOfficeDoc || mimeType.startsWith("text/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/");
-  const previewUrl = `/api/drive/preview?fileId=${fileId}`;
+  const previewUrl = (isOfficeDoc || isGoogleDoc || isPdf) ? `https://drive.google.com/file/d/${fileId}/preview` : `/api/drive/preview?fileId=${fileId}`;
 
   const [previewLoading, setPreviewLoading] = useState(true);
   const [zoom, setZoom] = useState(0.35);
@@ -319,7 +319,7 @@ function PreviewPageInner() {
     <div className="flex h-full flex-col bg-background overflow-hidden">
       {/* Top bar */}
       <header className="h-16 border-b bg-card/80 backdrop-blur-md flex items-center gap-3 px-4 flex-shrink-0 z-50">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 lg:hidden">
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 hover:bg-primary/10 hover:text-primary transition-colors">
@@ -362,24 +362,47 @@ function PreviewPageInner() {
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs">
-                  <ClipboardList className="h-3.5 w-3.5" /> Revisi
+                  <ClipboardList className="h-3.5 w-3.5" /> Catatan
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="p-0 w-full sm:max-w-md border-l">
                 <SheetHeader className="sr-only">
-                  <SheetTitle>Daftar Revisi</SheetTitle>
-                  <SheetDescription>Kelola catatan revisi untuk file ini</SheetDescription>
+                  <SheetTitle>Catatan</SheetTitle>
+                  <SheetDescription>Kelola catatan untuk file ini</SheetDescription>
                 </SheetHeader>
                 <RevisionPanel fileId={fileId} fileName={fileName} />
               </SheetContent>
             </Sheet>
           </div>
 
-          {webViewLink && (
-            <Button variant="outline" size="sm" className="gap-1.5 h-8 text-xs hidden sm:flex" onClick={() => window.open(webViewLink, "_blank")}>
-              <ExternalLink className="h-3.5 w-3.5" /> Drive
-            </Button>
-          )}
+          {webViewLink && (() => {
+            const isWord = mimeType.includes("wordprocessingml") || mimeType.includes("msword") || mimeType.includes("google-apps.document");
+            const isExcel = mimeType.includes("spreadsheetml") || mimeType.includes("ms-excel") || mimeType.includes("google-apps.spreadsheet");
+            const isPowerPoint = mimeType.includes("presentationml") || mimeType.includes("ms-powerpoint") || mimeType.includes("google-apps.presentation");
+            
+            return (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className={cn(
+                  "gap-1.5 h-8 text-xs hidden sm:flex font-semibold shadow-sm transition-all",
+                  isWord ? "bg-blue-600 hover:bg-blue-700 text-white" :
+                  isExcel ? "bg-emerald-600 hover:bg-emerald-700 text-white" :
+                  isPowerPoint ? "bg-amber-600 hover:bg-amber-700 text-white" :
+                  isPdf ? "bg-red-600 hover:bg-red-700 text-white" :
+                  "bg-primary hover:bg-primary/90 text-primary-foreground"
+                )} 
+                onClick={() => window.open(webViewLink, "_blank")}
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> 
+                {isWord ? "Buka dengan Google Dokumen" : 
+                 isExcel ? "Buka dengan Google Spreadsheet" : 
+                 isPowerPoint ? "Buka dengan Google Slide" : 
+                 isPdf ? "Buka PDF di Google Drive" :
+                 "Buka di Google Drive"}
+              </Button>
+            );
+          })()}
         </div>
       </header>
 
@@ -476,6 +499,7 @@ function PreviewPageInner() {
             ) : canPreviewInFrame ? (
               <iframe
                 src={previewUrl}
+                allowFullScreen
                 className={cn(
                   "w-full h-full rounded-xl border bg-white shadow-inner transition-opacity duration-500",
                   previewLoading ? "opacity-0" : "opacity-100"

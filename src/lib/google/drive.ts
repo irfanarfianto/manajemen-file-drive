@@ -139,6 +139,35 @@ export async function deleteFile(
 }
 
 // =============================================
+// RESTORE FILE (remove from trash)
+// =============================================
+export async function restoreFile(
+  accessToken: string,
+  fileId: string
+): Promise<void> {
+  const drive = getDriveClient(accessToken);
+  await drive.files.update({
+    fileId,
+    requestBody: { trashed: false },
+    supportsAllDrives: true,
+  });
+}
+
+// =============================================
+// PERMANENT DELETE
+// =============================================
+export async function permanentDeleteFile(
+  accessToken: string,
+  fileId: string
+): Promise<void> {
+  const drive = getDriveClient(accessToken);
+  await drive.files.delete({
+    fileId,
+    supportsAllDrives: true,
+  });
+}
+
+// =============================================
 // RENAME FILE
 // =============================================
 export async function renameFile(
@@ -183,9 +212,36 @@ export async function uploadFile(
   parentId = "root"
 ): Promise<DriveFile> {
   const drive = getDriveClient(accessToken);
+  
+  // Fitur pengecekan otomatis penggantian nama jika ada duplikat (auto-increment suffix)
+  let finalName = name;
+  let attempt = 0;
+  let fileExists = true;
+
+  const dotIndex = name.lastIndexOf('.');
+  const baseName = dotIndex > 0 ? name.substring(0, dotIndex) : name;
+  const ext = dotIndex > 0 ? name.substring(dotIndex) : '';
+
+  while (fileExists) {
+    const q = `name = '${finalName.replace(/'/g, "\\'")}' and '${parentId}' in parents and trashed = false`;
+    const checkRes = await drive.files.list({
+      q,
+      fields: "files(id, name)",
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    
+    if (checkRes.data.files && checkRes.data.files.length > 0) {
+      attempt++;
+      finalName = `${baseName} (${attempt})${ext}`;
+    } else {
+      fileExists = false;
+    }
+  }
+
   const response = await drive.files.create({
     requestBody: {
-      name,
+      name: finalName,
       parents: [parentId],
     },
     media: { mimeType, body },
@@ -255,22 +311,38 @@ export async function exportFile(
 }
 
 // =============================================
-// BATCH DELETE FILES
+// BATCH TRASH FILES
 // =============================================
-export async function batchDeleteFiles(
+export async function batchTrashFiles(
   accessToken: string,
   fileIds: string[]
 ): Promise<void> {
   const drive = getDriveClient(accessToken);
   
-  // Google Drive API does not have a native bulk delete endpoint in v3,
-  // so we execute them concurrently.
+  await Promise.all(
+    fileIds.map((fileId) => 
+      drive.files.update({ fileId, requestBody: { trashed: true }, supportsAllDrives: true })
+        .catch(err => {
+          console.error(`Failed to trash file ${fileId}:`, err);
+        })
+    )
+  );
+}
+
+// =============================================
+// BATCH PERMANENT DELETE
+// =============================================
+export async function batchPermanentDeleteFiles(
+  accessToken: string,
+  fileIds: string[]
+): Promise<void> {
+  const drive = getDriveClient(accessToken);
+  
   await Promise.all(
     fileIds.map((fileId) => 
       drive.files.delete({ fileId, supportsAllDrives: true })
         .catch(err => {
-          console.error(`Failed to delete file ${fileId}:`, err);
-          // Don't throw here so we attempt to delete the rest
+          console.error(`Failed to permanent delete file ${fileId}:`, err);
         })
     )
   );

@@ -6,10 +6,11 @@ import {
   Upload, 
   HardDrive, 
   Trash2, 
-  GraduationCap, 
+  Boxes, 
   SquareKanban, 
   Layout, 
-  Loader2 
+  Loader2,
+  GraduationCap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -27,6 +28,7 @@ interface SidebarProps {
   onUpload: () => void;
   onThesisTemplate: () => void;
   currentFolderName: string;
+  isTrashMode?: boolean;
 }
 
 export function Sidebar({
@@ -37,6 +39,7 @@ export function Sidebar({
   onUpload,
   onThesisTemplate,
   currentFolderName,
+  isTrashMode,
 }: SidebarProps) {
   const [rootFolders, setRootFolders] = useState<DriveFile[]>([]);
   const [rootLoading, setRootLoading] = useState(false);
@@ -90,15 +93,16 @@ export function Sidebar({
   return (
     <aside className="w-64 border-r bg-background flex flex-col h-full shadow-lg">
       <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20">
-          <GraduationCap className="h-6 w-6 text-white" />
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+          <Boxes className="h-6 w-6 text-white" />
         </div>
-        <span className="font-bold text-lg tracking-tight">Skripsi Drive</span>
+        <span className="font-bold text-lg tracking-tight">Drive Workspace</span>
       </div>
 
       <div className="px-4 mb-4 flex flex-col gap-2">
         <Button 
           onClick={onUpload} 
+          disabled={isTrashMode}
           className="w-full justify-start gap-2 shadow-sm relative overflow-hidden group h-auto py-2.5 px-3"
           id="sidebar-upload-btn"
         >
@@ -106,20 +110,12 @@ export function Sidebar({
           <div className="flex flex-col items-start min-w-0">
             <span className="text-sm font-semibold leading-none mb-0.5">Upload File</span>
             <span className="text-[10px] opacity-70 leading-none truncate w-full text-left">
-              ke {currentFolderName}
+              {isTrashMode ? "Tidak tersedia di Trash" : `ke ${currentFolderName}`}
             </span>
           </div>
-          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+          {!isTrashMode && <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />}
         </Button>
-        <Button 
-          variant="secondary" 
-          onClick={onNewFolder} 
-          className="w-full justify-start gap-2 bg-secondary/50 hover:bg-secondary transition-all"
-          id="sidebar-new-folder-btn"
-        >
-          <FolderPlus className="h-4 w-4" />
-          Folder Baru
-        </Button>
+
       </div>
 
       <Separator className="mx-4 w-auto mb-4" />
@@ -127,26 +123,33 @@ export function Sidebar({
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 no-scrollbar">
         <nav className="space-y-1 mb-6" aria-label="Drive navigation">
-          {navItems.map((item) => (
+          {navItems.map((item) => {
+            const isActive = item.id === "trash" 
+              ? (currentFolder === "trash" || !!isTrashMode)
+              : item.id === "root" 
+                ? (currentFolder === "root" || (currentFolder !== "dashboard" && currentFolder !== "kanban" && currentFolder !== "trash" && !isTrashMode))
+                : currentFolder === item.id;
+            return (
             <Button
               key={item.id}
-              variant={currentFolder === item.id ? "secondary" : "ghost"}
+              variant={isActive ? "secondary" : "ghost"}
               className={cn(
                 "w-full justify-start gap-3 px-3 transition-all",
-                currentFolder === item.id ? "bg-primary/10 text-primary hover:bg-primary/20" : ""
+                isActive ? "bg-primary/10 text-primary hover:bg-primary/20" : ""
               )}
               onClick={() => onFolderChange(item.id)}
               id={`nav-${item.id}`}
             >
               <span className={cn(
                 "p-1 rounded-md transition-colors",
-                currentFolder === item.id ? "bg-primary/20" : "text-muted-foreground"
+                isActive ? "bg-primary/20" : "text-muted-foreground"
               )}>
                 {item.icon}
               </span>
               <span className="font-medium">{item.label}</span>
             </Button>
-          ))}
+            );
+          })}
 
           <Button
             variant="ghost"
