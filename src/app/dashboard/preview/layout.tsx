@@ -31,6 +31,7 @@ function SidebarWrapper() {
       onNewFolder={redirectToDashboard}
       onUpload={redirectToDashboard}
       onThesisTemplate={redirectToDashboard}
+      currentFolderName="Drive"
     />
   );
 }

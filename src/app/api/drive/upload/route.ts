@@ -12,27 +12,32 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const files = formData.getAll("files") as File[];
     const parentId = (formData.get("parentId") as string) || "root";
 
-    if (!file) {
+    if (!files || files.length === 0) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Convert Web File to Node.js Readable Stream
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const stream = Readable.from(buffer);
+    const uploadedFiles = [];
 
-    const uploadedFile = await uploadFile(
-      session.accessToken,
-      file.name,
-      file.type,
-      stream,
-      parentId
-    );
+    for (const file of files) {
+      // Convert Web File to Node.js Readable Stream
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const stream = Readable.from(buffer);
 
-    return NextResponse.json(uploadedFile);
+      const uploaded = await uploadFile(
+        session.accessToken,
+        file.name,
+        file.type,
+        stream,
+        parentId
+      );
+      uploadedFiles.push(uploaded);
+    }
+
+    return NextResponse.json({ success: true, files: uploadedFiles });
   } catch (err: unknown) {
     console.error("[upload] error:", err);
     const message = err instanceof Error ? err.message : "Error uploading file";

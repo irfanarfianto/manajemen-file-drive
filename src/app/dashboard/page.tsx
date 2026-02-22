@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   X,
   LayoutGrid,
@@ -19,14 +19,12 @@ import { FileGrid } from "@/components/drive/FileGrid";
 import { KanbanBoard } from "@/components/drive/KanbanBoard";
 import { FileRevisionModal } from "@/components/drive/FileRevisionModal";
 import { toast } from "sonner";
-import {
-  NewFolderModal,
-  RenameModal,
-  DeleteModal,
-  PreviewModal,
-  RevisionsModal,
-  ThesisTemplateModal
-} from "@/components/drive/Modals";
+import { NewFolderModal } from "@/components/drive/modals/NewFolderModal";
+import { RenameModal } from "@/components/drive/modals/RenameModal";
+import { DeleteModal } from "@/components/drive/modals/DeleteModal";
+import { RevisionsModal } from "@/components/drive/modals/RevisionsModal";
+import { ThesisTemplateModal } from "@/components/drive/modals/ThesisTemplateModal";
+import { UploadModal } from "@/components/drive/modals/UploadModal";
 import { DashboardOverview } from "@/components/drive/DashboardOverview";
 import { useDriveFiles, useDriveQuota, useDriveSearch } from "@/hooks/useDrive";
 import {
@@ -54,6 +52,7 @@ export default function DashboardPage() {
 }
 
 function DashboardInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialFolder = searchParams.get("folderId") ?? "dashboard";
   const [currentFolder, setCurrentFolder] = useState(initialFolder);
@@ -64,19 +63,21 @@ function DashboardInner() {
     | { type: "newFolder" }
     | { type: "rename"; file: DriveFile }
     | { type: "delete"; files: DriveFile[] }
-    | { type: "preview"; file: DriveFile }
     | { type: "revisions"; file: DriveFile }
     | { type: "file-revisions"; file: DriveFile }
     | { type: "thesisTemplate" }
+    | { type: "upload" }
     | null
   >(null);
   const { data: session } = useSession();
-  const [isUploading, setIsUploading] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
 
   const isKanbanView = currentFolder === "kanban";
   const isDashboardView = currentFolder === "dashboard";
+
+  const currentFolderName = isDashboardView ? "My Drive" : 
+    (breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : "My Drive");
 
   const { files, loading: filesLoading, error: filesError, refetch } = useDriveFiles({
     folderId: currentFolder,
@@ -111,7 +112,15 @@ function DashboardInner() {
     } else if (action === "delete") {
       setActiveModal({ type: "delete", files: [file] });
     } else if (action === "preview") {
-      setActiveModal({ type: "preview", file });
+      const params = new URLSearchParams({
+        fileId: file.id,
+        fileName: file.name,
+        mimeType: file.mimeType,
+        webViewLink: file.webViewLink || "",
+        fileSize: file.size || "0",
+        modifiedTime: file.modifiedTime || ""
+      });
+      router.push(`/dashboard/preview?${params.toString()}`);
     } else if (action === "revisions") {
       setActiveModal({ type: "revisions", file });
     } else if (action === "file-revisions") {
@@ -153,41 +162,7 @@ function DashboardInner() {
     }
   };
 
-  const handleUpload = async () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.multiple = true;
-    input.onchange = async (e) => {
-      const files = (e.target as HTMLInputElement).files;
-      if (!files || files.length === 0) return;
-
-      setIsUploading(true);
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append("files", files[i]);
-      }
-      formData.append("parentId", currentFolder === "dashboard" ? "root" : currentFolder);
-
-      try {
-        const res = await fetch("/api/drive/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!res.ok) throw new Error("Upload failed");
-        
-        toast.success(`${files.length} file berhasil diupload`);
-        refetch();
-        refetchQuota();
-      } catch (err) {
-        toast.error("Gagal mengupload file");
-        console.error(err);
-      } finally {
-        setIsUploading(false);
-      }
-    };
-    input.click();
-  };
+  const handleUpload = useCallback(() => setActiveModal({ type: "upload" }), []);
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -206,6 +181,7 @@ function DashboardInner() {
         onUpload={handleUpload}
         onNewFolder={handleNewFolder}
         onThesisTemplate={handleThesisTemplate}
+        currentFolderName={currentFolderName}
       />
 
       <main className="flex-1 flex flex-col min-w-0">
@@ -229,6 +205,7 @@ function DashboardInner() {
                   onUpload={handleUpload}
                   onNewFolder={handleNewFolder}
                   onThesisTemplate={handleThesisTemplate}
+                  currentFolderName={currentFolderName}
                 />
               </SheetContent>
             </Sheet>
@@ -432,7 +409,17 @@ function DashboardInner() {
                 onKanbanOpen={() => setCurrentFolder("kanban")}
                 onNewFolder={() => setActiveModal({ type: "newFolder" })}
                 onUpload={handleUpload}
-                onViewFile={(file) => setActiveModal({ type: "preview", file })}
+                onViewFile={(file) => {
+                  const params = new URLSearchParams({
+                    fileId: file.id,
+                    fileName: file.name,
+                    mimeType: file.mimeType,
+                    webViewLink: file.webViewLink || "",
+                    fileSize: file.size || "0",
+                    modifiedTime: file.modifiedTime || ""
+                  });
+                  router.push(`/dashboard/preview?${params.toString()}`);
+                }}
               />
             ) : (
               <FileGrid
@@ -480,15 +467,7 @@ function DashboardInner() {
           }}
         />
       )}
-      {activeModal?.type === "preview" && (
-        <PreviewModal
-          open={true}
-          onOpenChange={(open) => !open && setActiveModal(null)}
-          file={activeModal.file}
-          onDownload={(file) => window.open(file.webContentLink, "_blank")}
-          onTagsUpdated={refetch}
-        />
-      )}
+
       {activeModal?.type === "revisions" && (
         <RevisionsModal
           open={true}
@@ -511,18 +490,17 @@ function DashboardInner() {
           onCreated={refetch}
         />
       )}
-
-      {/* Upload Progress Indicator */}
-      {isUploading && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-10">
-          <div className="bg-primary text-primary-foreground px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-4 border border-white/10 backdrop-blur-lg">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <div className="flex flex-col">
-              <span className="text-sm font-bold leading-none mb-1">Mengupload file...</span>
-              <span className="text-[10px] opacity-70 leading-none">Mohon jangan tutup halaman ini</span>
-            </div>
-          </div>
-        </div>
+      {activeModal?.type === "upload" && (
+        <UploadModal
+          open={true}
+          onOpenChange={(open) => !open && setActiveModal(null)}
+          currentFolderId={currentFolder === "dashboard" || currentFolder === "root" ? "root" : currentFolder}
+          currentFolderName={currentFolderName}
+          onUploadSuccess={() => {
+            refetch();
+            refetchQuota();
+          }}
+        />
       )}
     </div>
   );

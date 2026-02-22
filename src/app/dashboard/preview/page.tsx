@@ -338,6 +338,7 @@ function PreviewPageInner() {
                 onNewFolder={() => router.push("/dashboard?action=newFolder")}
                 onUpload={() => router.push("/dashboard?action=upload")}
                 onThesisTemplate={() => router.push("/dashboard?action=thesisTemplate")}
+                currentFolderName="Drive"
               />
             </SheetContent>
           </Sheet>

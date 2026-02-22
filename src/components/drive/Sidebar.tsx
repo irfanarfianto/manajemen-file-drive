@@ -1,32 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { 
   FolderPlus, 
   Upload, 
   HardDrive, 
-  ChevronRight,
-  Folder,
-  GraduationCap,
-  SquareKanban,
-  Cloud,
-  Layout,
-  Loader2
+  Trash2, 
+  GraduationCap, 
+  SquareKanban, 
+  Layout, 
+  Loader2 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { FileIcon } from "@/components/ui/FileIcon";
 import { cn } from "@/lib/utils";
-
-interface DriveNode {
-  id: string;
-  name: string;
-  mimeType: string;
-  size?: string;
-  modifiedTime?: string;
-}
+import { DriveFile } from "@/lib/drive-types";
+import { SidebarTreeItem } from "./sidebar/SidebarTreeItem";
+import { SidebarQuota } from "./sidebar/SidebarQuota";
 
 interface SidebarProps {
   currentFolder: string;
@@ -35,181 +26,9 @@ interface SidebarProps {
   onNewFolder: () => void;
   onUpload: () => void;
   onThesisTemplate: () => void;
+  currentFolderName: string;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
-  }
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-// ─── Recursive Tree Item ──────────────────────────────────────────────────
-interface SidebarTreeItemProps {
-  folder: DriveNode;
-  level: number;
-  currentFolder: string;
-  onFolderChange: (folderId: string) => void;
-  autoExpandPath: string[]; // Jalur ID yang harus otomatis terbuka
-}
-
-function SidebarTreeItem({ folder, level, currentFolder, onFolderChange, autoExpandPath }: SidebarTreeItemProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [children, setChildren] = useState<DriveNode[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
-
-  const isActive = currentFolder === folder.id;
-  const isFolder = folder.mimeType === "application/vnd.google-apps.folder";
-
-  // Jalankan fetch children
-  const fetchData = useCallback(async () => {
-    if (hasFetched || loading) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/drive/files?folderId=${folder.id}`);
-      const data = await res.json();
-      setChildren(data.files || []);
-      setHasFetched(true);
-    } catch (err) {
-      console.error("Failed to fetch sub-folders:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [folder.id, hasFetched, loading]);
-
-  const toggleExpand = async (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (!isFolder) return;
-    const newExpanded = !isExpanded;
-    setIsExpanded(newExpanded);
-    if (newExpanded) await fetchData();
-  };
-
-  // Efek untuk auto-expand jika ID folder ini ada di jalur yang harus dibuka
-  useEffect(() => {
-    if (isFolder && autoExpandPath.includes(folder.id)) {
-      setIsExpanded(true);
-      fetchData();
-    } else if (isFolder && autoExpandPath.length > 0 && !autoExpandPath.includes(folder.id) && !isActive) {
-      // Tutup folder jika tidak ada di jalur aktif dan bukan folder aktif
-      setIsExpanded(false);
-    }
-  }, [autoExpandPath, folder.id, isFolder, isActive, fetchData]);
-
-  // Ref untuk scroll ke item aktif
-  const itemRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (isActive && itemRef.current) {
-      itemRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [isActive]);
-
-  return (
-    <div className="space-y-0.5" ref={isActive ? itemRef : null}>
-      <div 
-        className={cn(
-          "group flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded-lg text-[11px] transition-all relative cursor-pointer",
-          isActive 
-            ? "bg-primary/10 text-primary font-semibold shadow-[inset_0_0_0_1px_rgba(var(--primary),0.1)]" 
-            : "text-foreground/60 hover:bg-muted/80 hover:text-foreground"
-        )}
-        style={{ paddingLeft: `${level * 12 + 8}px` }}
-        onClick={() => {
-          if (isFolder) {
-            onFolderChange(folder.id);
-          } else {
-            const params = new URLSearchParams({
-              fileId: folder.id,
-              fileName: folder.name,
-              mimeType: folder.mimeType,
-              fileSize: folder.size || "0",
-              modifiedTime: folder.modifiedTime || "",
-            });
-            window.location.href = `/dashboard/preview?${params.toString()}`;
-          }
-        }}
-      >
-        <div 
-          onClick={(e) => {
-            if (isFolder) toggleExpand(e);
-            else e.stopPropagation();
-          }}
-          className={cn(
-            "p-1 -ml-1 rounded-sm hover:bg-primary/20 transition-colors mr-0.5 z-10",
-            !isFolder && "opacity-0 pointer-events-none"
-          )}
-        >
-          <ChevronRight 
-            className={cn(
-              "h-3 w-3 transition-transform duration-200", 
-              isExpanded && "rotate-90"
-            )} 
-          />
-        </div>
-        
-        {isFolder ? (
-          <Folder className={cn("h-3.5 w-3.5 shrink-0 transition-transform group-hover:scale-110", isActive ? "text-primary" : "text-muted-foreground/60")} />
-        ) : (
-          <div className="h-3.5 w-3.5 shrink-0 flex items-center justify-center opacity-70">
-            <FileIcon mimeType={folder.mimeType} className="h-3 w-3" />
-          </div>
-        )}
-        
-        <span className="whitespace-nowrap overflow-x-auto no-scrollbar flex-1 pr-2">{folder.name}</span>
-        {isActive && <div className="absolute left-0 top-1 bottom-1 w-1 bg-primary rounded-r-full shadow-[0_0_10px_rgba(var(--primary),0.5)]" />}
-      </div>
-
-      {/* Animated Height Container */}
-      <div 
-        className={cn(
-          "grid transition-[grid-template-rows] duration-300 ease-in-out",
-          isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
-      >
-        <div className="overflow-hidden">
-          {loading ? (
-            <div className="py-2 flex items-center gap-2" style={{ paddingLeft: `${(level + 1) * 12 + 20}px` }}>
-              <Loader2 className="h-2.5 w-2.5 animate-spin text-primary/30" />
-              <span className="text-[10px] text-muted-foreground/40 font-medium">Memuat...</span>
-            </div>
-          ) : (
-            // Urutkan: Folder dulu, baru File (agar folder tetap terkumpul di atas jalurnya)
-            [...children]
-              .sort((a, b) => {
-                const aIsFolder = a.mimeType === "application/vnd.google-apps.folder";
-                const bIsFolder = b.mimeType === "application/vnd.google-apps.folder";
-                if (aIsFolder && !bIsFolder) return -1;
-                if (!aIsFolder && bIsFolder) return 1;
-                return a.name.localeCompare(b.name);
-              })
-              .map((child) => (
-                <SidebarTreeItem 
-                  key={child.id} 
-                  folder={child} 
-                  level={level + 1} 
-                  currentFolder={currentFolder} 
-                  onFolderChange={onFolderChange}
-                  autoExpandPath={autoExpandPath}
-                />
-              ))
-          )}
-          {hasFetched && children.length === 0 && !loading && (
-             <p 
-              className="py-1 text-[10px] text-muted-foreground/30 italic font-medium" 
-              style={{ paddingLeft: `${(level + 1) * 12 + 24}px` }}
-             >
-               Kosong
-             </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-// ─── Main Sidebar Component ───────────────────────────────────────────────
 export function Sidebar({
   currentFolder,
   onFolderChange,
@@ -217,18 +36,28 @@ export function Sidebar({
   onNewFolder,
   onUpload,
   onThesisTemplate,
+  currentFolderName,
 }: SidebarProps) {
-  const [rootFolders, setRootFolders] = useState<DriveNode[]>([]);
+  const [rootFolders, setRootFolders] = useState<DriveFile[]>([]);
   const [rootLoading, setRootLoading] = useState(false);
   const [autoExpandPath, setAutoExpandPath] = useState<string[]>([]);
 
+  // Navigasi Item
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: <Layout className="h-4 w-4" /> },
+    { id: "root", label: "My Drive", icon: <HardDrive className="h-4 w-4" /> },
+    { id: "kanban", label: "Task Board", icon: <SquareKanban className="h-4 w-4" /> },
+    { id: "trash", label: "Trash", icon: <Trash2 className="h-4 w-4" /> },
+  ];
+
+  // Fetch root folders
   useEffect(() => {
     const fetchRoot = async () => {
       setRootLoading(true);
       try {
-        const res = await fetch(`/api/drive/files?folderId=root`);
+        const res = await fetch("/api/drive/files?folderId=root");
         const data = await res.json();
-        setRootFolders(data.files || []);
+        setRootFolders(data.files?.filter((f: DriveFile) => f.mimeType === "application/vnd.google-apps.folder") || []);
       } catch (err) {
         console.error("Failed to fetch root folders:", err);
       } finally {
@@ -238,19 +67,18 @@ export function Sidebar({
     fetchRoot();
   }, []);
 
-  // Efek untuk mencari path file yang sedang dibuka
+  // Fetch auto-expand path when folder changes
   useEffect(() => {
-    if (currentFolder === "root" || currentFolder === "kanban") {
+    if (currentFolder === "dashboard" || currentFolder === "root" || currentFolder === "trash" || currentFolder === "kanban") {
       setAutoExpandPath([]);
       return;
     }
-
     const fetchPath = async () => {
       try {
-        const res = await fetch(`/api/drive/file-path?fileId=${currentFolder}`);
+        const res = await fetch(`/api/drive/file/path?fileId=${currentFolder}`);
         const data = await res.json();
-        if (data.folderPath) {
-          setAutoExpandPath(data.folderPath.map((f: { id: string }) => f.id));
+        if (data.path) {
+          setAutoExpandPath(data.path.map((p: { id: string }) => p.id));
         }
       } catch (err) {
         console.error("Failed to fetch path:", err);
@@ -259,42 +87,11 @@ export function Sidebar({
     fetchPath();
   }, [currentFolder]);
 
-  const usagePercent =
-    quota?.limit && quota.usage
-      ? Math.min((quota.usage / quota.limit) * 100, 100)
-      : 0;
-
-  const navItems = [
-    {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: <Layout className="h-4 w-4" />,
-    },
-    {
-      id: "root",
-      label: "My Drive",
-      icon: <HardDrive className="h-4 w-4" />,
-    },
-    {
-      id: "kanban",
-      label: "Kanban Tugas",
-      icon: <SquareKanban className="h-4 w-4" />,
-    },
-  ];
-
   return (
-    <aside className="w-64 border-r bg-card flex flex-col h-screen overflow-hidden">
-      {/* Logo */}
+    <aside className="w-64 border-r bg-background flex flex-col h-full shadow-lg">
       <div className="p-6 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <svg width="20" height="20" viewBox="0 0 87.3 78" fill="none" aria-hidden="true">
-            <path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L28 48.95H0c0 1.55.4 3.1 1.2 4.5l5.4 13.4z" fill="#0066DA" />
-            <path d="M43.65 24.15L29.3 1.2C27.95.4 26.4 0 24.85 0c-1.55 0-3.1.4-4.45 1.2l-14.8 25.35 14.35 24.8 24.6-27.2z" fill="#00AC47" />
-            <path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.3c.8-1.4 1.2-2.95 1.2-4.5H59.3L73.55 76.8z" fill="#EA4335" />
-            <path d="M43.65 24.15L57.3 1.2C55.95.4 54.4 0 52.85 0H34.45c-1.55 0-3.1.4-4.45 1.2l14.35 24.8-.7-1.85z" fill="#00832D" />
-            <path d="M59.3 48.95H28L13.65 76.8c1.35.8 2.9 1.2 4.45 1.2h50.1c1.55 0 3.1-.4 4.45-1.2L59.3 48.95z" fill="#2684FC" />
-            <path d="M87.3 52.95c0-1.55-.4-3.1-1.2-4.5l-14.7-25.4-14 24.2 14.15 24.55 15.75-14.85z" fill="#FFBA00" />
-          </svg>
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary-foreground flex items-center justify-center shadow-lg shadow-primary/20">
+          <GraduationCap className="h-6 w-6 text-white" />
         </div>
         <span className="font-bold text-lg tracking-tight">Skripsi Drive</span>
       </div>
@@ -302,11 +99,16 @@ export function Sidebar({
       <div className="px-4 mb-4 flex flex-col gap-2">
         <Button 
           onClick={onUpload} 
-          className="w-full justify-start gap-2 shadow-sm relative overflow-hidden group"
+          className="w-full justify-start gap-2 shadow-sm relative overflow-hidden group h-auto py-2.5 px-3"
           id="sidebar-upload-btn"
         >
           <Upload className="h-4 w-4 transition-transform group-hover:-translate-y-1" />
-          Upload File
+          <div className="flex flex-col items-start min-w-0">
+            <span className="text-sm font-semibold leading-none mb-0.5">Upload File</span>
+            <span className="text-[10px] opacity-70 leading-none truncate w-full text-left">
+              ke {currentFolderName}
+            </span>
+          </div>
           <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
         </Button>
         <Button 
@@ -346,7 +148,6 @@ export function Sidebar({
             </Button>
           ))}
 
-          {/* Template Skripsi & Quick Note moved here */}
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 px-3 transition-all hover:bg-primary/5 hover:text-primary group"
@@ -390,25 +191,7 @@ export function Sidebar({
         <ScrollBar orientation="horizontal" className="h-1.5" />
       </ScrollArea>
 
-      {/* Storage & User */}
-      <div className="p-4 bg-muted/20 border-t mt-auto">
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              <Cloud className="h-4 w-4 text-primary" />
-              <span>Penyimpanan</span>
-            </div>
-            <span className="text-[10px] font-bold text-muted-foreground">
-              {usagePercent.toFixed(1)}%
-            </span>
-          </div>
-          <Progress value={usagePercent} className="h-1.5" />
-          <div className="flex justify-between mt-1.5 text-[10px] text-muted-foreground/70 font-medium">
-             <span>{quota ? formatBytes(quota.usage) : "0 MB"} terpakai</span>
-             <span>{quota?.limit ? formatBytes(quota.limit) : "Tanpa batas"}</span>
-          </div>
-        </div>
-      </div>
+      <SidebarQuota quota={quota} />
     </aside>
   );
 }
