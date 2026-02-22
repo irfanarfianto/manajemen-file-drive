@@ -233,6 +233,7 @@ function PreviewPageInner() {
   const webViewLink = params.get("webViewLink") ?? "";
   const fileSize = params.get("fileSize") ?? "0";
   const modifiedTime = params.get("modifiedTime") ?? "";
+  const folderIdContext = params.get("folderId") ?? "root";
 
   const formatFullDate = (dateStr: string) => {
     if (!dateStr) return "";
@@ -332,7 +333,7 @@ function PreviewPageInner() {
                 <SheetDescription>Menu utama dashboard</SheetDescription>
               </SheetHeader>
               <Sidebar
-                currentFolder={""}
+                currentFolder={folderIdContext}
                 onFolderChange={(id) => router.push(`/dashboard?folderId=${id}`)}
                 quota={quota ?? null}
                 onNewFolder={() => router.push("/dashboard?action=newFolder")}

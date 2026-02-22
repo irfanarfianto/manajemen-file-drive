@@ -15,6 +15,7 @@ import {
   FileText,
   RefreshCcw,
   ShieldAlert,
+  Users
 } from "lucide-react";
 import { Sidebar } from "@/components/drive/Sidebar";
 import { FileGrid } from "@/components/drive/FileGrid";
@@ -126,16 +127,16 @@ function DashboardInner() {
     setCurrentFolder(id);
     setSelectedFileIds(new Set());
     if (id === "trash") setIsTrashMode(true);
-    else if (id === "dashboard" || id === "root" || id === "kanban") setIsTrashMode(false);
+    else if (id === "dashboard" || id === "root" || id === "kanban" || id === "shared") setIsTrashMode(false);
     
-    if (id === "dashboard" || id === "kanban" || id === "trash" || id === "root") {
+    if (id === "dashboard" || id === "kanban" || id === "trash" || id === "root" || id === "shared") {
       setBreadcrumbs([]);
     }
   }, []);
 
   // Sync breadcrumbs for deep folder navigation (from sidebar tree or direct ID)
   useEffect(() => {
-    if (currentFolder === "dashboard" || currentFolder === "kanban" || currentFolder === "trash" || currentFolder === "root") {
+    if (currentFolder === "dashboard" || currentFolder === "kanban" || currentFolder === "trash" || currentFolder === "root" || currentFolder === "shared") {
       return;
     }
 
@@ -183,7 +184,8 @@ function DashboardInner() {
         mimeType: file.mimeType,
         webViewLink: file.webViewLink || "",
         fileSize: file.size || "0",
-        modifiedTime: file.modifiedTime || ""
+        modifiedTime: file.modifiedTime || "",
+        folderId: currentFolder
       });
       router.push(`/dashboard/preview?${params.toString()}`);
     } else if (action === "revisions") {
@@ -459,6 +461,7 @@ function DashboardInner() {
                   <h1 className="text-3xl font-extrabold tracking-tight">
                     {isKanbanView ? "Manajemen Tugas" : 
                      currentFolder === "root" ? "My Drive" :
+                     currentFolder === "shared" ? "Dibagikan kepada saya" :
                      currentFolder === "trash" ? "Trash" :
                      breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : "Semua File"}
                   </h1>
@@ -473,6 +476,11 @@ function DashboardInner() {
                             <>
                               <Trash2 className="h-3.5 w-3.5" />
                               Trash
+                            </>
+                          ) : currentFolder === "shared" ? (
+                            <>
+                              <Users className="h-3.5 w-3.5" />
+                              Dibagikan
                             </>
                           ) : (
                             <>

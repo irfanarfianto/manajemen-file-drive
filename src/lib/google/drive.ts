@@ -34,6 +34,8 @@ export async function listFiles(
   let q = "";
   if (folderId === "trash") {
     q = "trashed = true";
+  } else if (folderId === "shared") {
+    q = "sharedWithMe = true and trashed = false";
   } else {
     q = `trashed = false and '${folderId}' in parents`;
   }

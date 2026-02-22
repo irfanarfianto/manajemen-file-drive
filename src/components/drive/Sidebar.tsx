@@ -10,7 +10,8 @@ import {
   SquareKanban, 
   Layout, 
   Loader2,
-  GraduationCap
+  GraduationCap,
+  Users
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -49,16 +50,28 @@ export function Sidebar({
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: <Layout className="h-4 w-4" /> },
     { id: "root", label: "My Drive", icon: <HardDrive className="h-4 w-4" /> },
+    { id: "shared", label: "Dibagikan", icon: <Users className="h-4 w-4" /> },
     { id: "kanban", label: "Task Board", icon: <SquareKanban className="h-4 w-4" /> },
     { id: "trash", label: "Trash", icon: <Trash2 className="h-4 w-4" /> },
   ];
+
+  const [baseFolderId, setBaseFolderId] = useState<"root" | "shared">("root");
+
+  // Determine base folder depending on menu context
+  useEffect(() => {
+    if (currentFolder === "shared") {
+      setBaseFolderId("shared");
+    } else if (currentFolder === "root" || currentFolder === "dashboard" || currentFolder === "trash" || currentFolder === "kanban") {
+      setBaseFolderId("root");
+    }
+  }, [currentFolder]);
 
   // Fetch root folders
   useEffect(() => {
     const fetchRoot = async () => {
       setRootLoading(true);
       try {
-        const res = await fetch("/api/drive/files?folderId=root");
+        const res = await fetch(`/api/drive/files?folderId=${baseFolderId}`);
         const data = await res.json();
         setRootFolders(data.files || []);
       } catch (err) {
@@ -68,11 +81,11 @@ export function Sidebar({
       }
     };
     fetchRoot();
-  }, []);
+  }, [baseFolderId]);
 
   // Fetch auto-expand path when folder changes
   useEffect(() => {
-    if (currentFolder === "dashboard" || currentFolder === "root" || currentFolder === "trash" || currentFolder === "kanban") {
+    if (currentFolder === "dashboard" || currentFolder === "shared" || currentFolder === "root" || currentFolder === "trash" || currentFolder === "kanban") {
       setAutoExpandPath([]);
       return;
     }
@@ -124,10 +137,11 @@ export function Sidebar({
       <ScrollArea className="flex-1 px-3 no-scrollbar">
         <nav className="space-y-1 mb-6" aria-label="Drive navigation">
           {navItems.map((item) => {
-            const isActive = item.id === "trash" 
-              ? (currentFolder === "trash" || !!isTrashMode)
+            const isActive = 
+              item.id === "trash" ? (currentFolder === "trash" || !!isTrashMode)
+              : item.id === "shared" ? currentFolder === "shared"
               : item.id === "root" 
-                ? (currentFolder === "root" || (currentFolder !== "dashboard" && currentFolder !== "kanban" && currentFolder !== "trash" && !isTrashMode))
+                ? (currentFolder === "root" || (currentFolder !== "dashboard" && currentFolder !== "kanban" && currentFolder !== "trash" && currentFolder !== "shared" && !isTrashMode))
                 : currentFolder === item.id;
             return (
             <Button
